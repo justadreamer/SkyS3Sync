@@ -10,9 +10,21 @@ if [[ $# -ne 2 ]]; then
 fi
 echo "Syncing dir=$1 into s3 bucket=$2"
 
+#create new manifest
 rm $DIR/$MANIFEST
+
+#sync the directory to S3
 s3cmd --delete-removed sync $DIR/ s3://$BUCKET
-s3cmd --list-md5 ls s3://craigs-test | grep -v manifest | awk '{print $5 " " $4 " " $1 "'T'" $2}' | sed s/s3:\\/\\/$BUCKET\\///g > $DIR/$MANIFEST
+#get the md5 sums into the temporary manifest
+s3cmd --list-md5 ls s3://craigs-test | grep -v manifest | awk '{print $5 " " $4}' | sed s/s3:\\/\\/$BUCKET\\///g > /tmp/$MANIFEST
+
+#need to add current modified dates into manifest
+#stat -f "%Sm" -t "%Y-%d-%mT%TZ%z" FILE
+touch $DIR/$MANIFEST
+cp /tmp/$MANIFEST $DIR/$MANIFEST
+
+#upload the manifest to S3:
 s3cmd put $DIR/$MANIFEST s3://$BUCKET
+
 echo "Manifest: "
 cat $DIR/$MANIFEST

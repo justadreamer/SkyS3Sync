@@ -15,5 +15,6 @@ Pod::Spec.new do |s|
   s.dependency 'AFAmazonS3Manager'
   s.dependency 'AFOnoResponseSerializer'
   s.dependency 'ObjectiveSugar'
+  s.dependency 'FileMD5Hash', '~> 2.0'
 
 end

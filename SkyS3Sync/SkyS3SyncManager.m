@@ -13,12 +13,34 @@
 #import <AFOnoResponseSerializer/AFOnoResponseSerializer.h>
 #import <Ono/Ono.h>
 #import <libextobjc/extobjc.h>
+#import <FileMD5Hash/FileHash.h>
 
 #import "SkyS3ManifestData.h"
 
 @interface SkyS3SyncManager ()
 /**
- *  This
+ *  Amazon S3 Access Key
+ */
+@property (nonatomic,strong) NSString *S3AccessKey;
+
+/**
+ *  Amazon S3 Secret Key
+ */
+@property (nonatomic,strong) NSString *S3SecretKey;
+
+/**
+ *  a name of the S3 bucket to sync the resources from
+ */
+@property (nonatomic,strong) NSString *S3BucketName;
+
+/**
+ *  local directory containing original versions of resources to be used as a starting point over which the synced
+ *  versions will be downloaded
+ */
+@property (nonatomic,strong) NSURL *originalResourcesDirectory;
+
+/**
+ *  This property is set when we start syncing to not start a new sync while the current is in progress
  */
 @property (atomic,assign) BOOL syncInProgress;
 
@@ -40,16 +62,15 @@
 @implementation SkyS3SyncManager
 
 #pragma mark - public methods:
-
-+ (instancetype) sharedInstance {
-    static SkyS3SyncManager *sharedInstance;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        sharedInstance = [[SkyS3SyncManager alloc] init];
-    });
-    return sharedInstance;
+- (instancetype) initWithS3AccessKey:(NSString *)accessKey secretKey:(NSString *)secretKey bucketName:(NSString *)bucketName originalResourcesDirectory:(NSURL *)originalResourcesDirectory {
+    if (self = [super init]) {
+        self.S3AccessKey = accessKey;
+        self.S3SecretKey = secretKey;
+        self.S3BucketName = bucketName;
+        self.originalResourcesDirectory = originalResourcesDirectory;
+    }
+    return self;
 }
-
 #pragma mark - SkyResourceProvider
 - (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext {
     NSString *resourceFileName = [name stringByAppendingPathExtension:ext];
@@ -60,8 +81,13 @@
 
 - (NSURL *)syncDirectoryURL {
     if (!_syncDirectoryURL) {
-        NSURL *baseURL = [[[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask] firstObject];
-        _syncDirectoryURL = [NSURL URLWithString:@"SkyS3Sync/" relativeToURL:baseURL];
+        NSURL *baseURL = [[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask] firstObject];
+        NSString *syncDirectoryName = self.syncDirectoryName;
+        if ([syncDirectoryName characterAtIndex:syncDirectoryName.length-1]!='/') {
+             syncDirectoryName = [syncDirectoryName stringByAppendingString:@"/"];
+        }
+
+        _syncDirectoryURL = [NSURL URLWithString:syncDirectoryName relativeToURL:baseURL];
         if (![[NSFileManager defaultManager] fileExistsAtPath:[_syncDirectoryURL path]]) {
             NSError *error = nil;
             if (![[NSFileManager defaultManager] createDirectoryAtURL:_syncDirectoryURL withIntermediateDirectories:YES attributes:nil error:&error]) {
@@ -71,6 +97,13 @@
         }
     }
     return _syncDirectoryURL;
+}
+
+- (NSString *)syncDirectoryName {
+    if (!_syncDirectoryName) {
+        _syncDirectoryName = @"SkyS3Sync";
+    }
+    return _syncDirectoryName;
 }
 
 - (AFAmazonS3Manager *)amazonS3Manager {
@@ -86,6 +119,11 @@
 #pragma mark - actual sync
 
 - (void) sync {
+    NSAssert(self.S3AccessKey, @"S3AccessKey not set");
+    NSAssert(self.S3SecretKey, @"S3SecretKey not set");
+    NSAssert(self.S3BucketName, @"S3BucketName not set");
+    NSAssert(self.originalResourcesDirectory, @"originalResourcesDirectory not set");
+
     if (!self.syncInProgress) {
         self.syncInProgress = YES;
         @weakify(self)
@@ -104,9 +142,9 @@
     }
 
     NSError *error = nil;
-    NSArray *resources = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:self.localDirectoryURL includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLContentModificationDateKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:&error];
+    NSArray *resources = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:self.originalResourcesDirectory includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLContentModificationDateKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:&error];
     if (!resources || error) {
-        [self log:@"Failed to get directory contents: %@ error: %@",self.localDirectoryURL, error];
+        [self log:@"Failed to get directory contents: %@ error: %@",self.originalResourcesDirectory, error];
     }
     
     [[[resources reject:^BOOL(NSURL *URL) { //first we filter out any directories - we work only with files
@@ -206,7 +244,7 @@
 }
 
 - (NSString *)md5ForURL:(NSURL *)URL {
-    return nil;
+    return [FileHash md5HashOfFileAtPath:[URL path]];
 }
 
 @end

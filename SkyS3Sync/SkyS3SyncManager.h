@@ -33,32 +33,25 @@
 @interface SkyS3SyncManager : NSObject<SkyResourceProvider>
 
 /**
- *  Amazon S3 Access Key
+ *  by default the sync directory name is SkyS3Sync, and it is stored under Documents, you can specify an arbitrary name for it (in case f.e. of name 
+ *  collission, or if you are working with several instances of SkyS3SyncManager
  */
-@property (nonatomic,strong) NSString *S3AccessKey;
+@property (nonatomic,strong) NSString *syncDirectoryName;
 
 /**
- *  Amazon S3 Secret Key
- */
-@property (nonatomic,strong) NSString *S3SecretKey;
-
-/**
- *  a name of the S3 bucket to sync the resources from
- */
-@property (nonatomic,strong) NSString *S3BucketName;
-
-/**
- *  local directory containing original versions of resources to be used as a starting point over which the synced
- *  versions will be downloaded
- */
-@property (nonatomic,strong) NSURL *localDirectoryURL;
-
-/**
- *  A singleton access point
+ *  Designated initializer
  *
- *  @return an instance of SkyS3SyncManager
+ *  @param accessKey                  Amazon S3 Access Key
+ *  @param secretKey                  Amazon S3 Secret Key
+ *  @param bucketName                 Amazon S3 Bucket Name
+ *  @param originalResourcesDirectory URL of the local directory, which contains original versions of resources to be used as startig poit over which the synced 
+ *   versions will be downloaded
+ *
+ *  @return returns a fully initialized SkyS3SyncManager
  */
-+ (instancetype) sharedInstance;
+- (instancetype) initWithS3AccessKey:(NSString *)accessKey secretKey:(NSString *)secretKey bucketName:(NSString *)bucketName originalResourcesDirectory:(NSURL *)originalResourcesDirectory NS_DESIGNATED_INITIALIZER;
+
+- (instancetype) init NS_UNAVAILABLE;
 
 /**
  *  To be called from AppDelegate's applicationDidBecomeActive: method to check if anything has been updated on S3

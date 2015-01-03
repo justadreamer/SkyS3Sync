@@ -119,21 +119,24 @@
 #pragma mark - actual sync
 
 - (void) sync {
-    NSAssert(self.S3AccessKey, @"S3AccessKey not set");
-    NSAssert(self.S3SecretKey, @"S3SecretKey not set");
-    NSAssert(self.S3BucketName, @"S3BucketName not set");
-    NSAssert(self.originalResourcesDirectory, @"originalResourcesDirectory not set");
-
     if (!self.syncInProgress) {
         self.syncInProgress = YES;
         @weakify(self)
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
             @strongify(self)
-            [self doOriginalResourcesCopying];
             [self doSync];
         });
     }
+}
 
+- (void) doSync {
+    NSAssert(self.S3AccessKey, @"S3AccessKey not set");
+    NSAssert(self.S3SecretKey, @"S3SecretKey not set");
+    NSAssert(self.S3BucketName, @"S3BucketName not set");
+    NSAssert(self.originalResourcesDirectory, @"originalResourcesDirectory not set");
+
+    [self doOriginalResourcesCopying];
+    [self doAmazonS3Sync];
 }
 
 - (void) doOriginalResourcesCopying {
@@ -188,7 +191,7 @@
     self.originalResourcesCopied = YES;
 }
 
-- (void) doSync {
+- (void) doAmazonS3Sync {
     __typeof(self) __weak weakSelf = self;
     [self.amazonS3Manager getBucket:@"/" success:^(id responseObject) {
         ONOXMLDocument *document = responseObject;

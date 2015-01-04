@@ -20,7 +20,7 @@
 + (NSDate *) modificationDateForURL:(NSURL *)URL;
 @end
 
-SPEC_BEGIN(SkyS3ManagerSpec)
+SPEC_BEGIN(SkyS3SyncManagerSpec)
 describe(@"SkyS3ManagerSpec", ^{
 beforeAll(^{
     [[LSNocilla sharedInstance] start];
@@ -119,12 +119,14 @@ afterEach(^{
         NSDate *dateOriginal1 = [SkyS3SyncManager modificationDateForURL:originalURL];
         NSString *modifiedContent = @"test1_modified";
         NSString *syncedContent1 = readFile(syncedURL);
-        
+        NSString *originalContent = readFile(originalURL);
         [[syncedContent1 shouldNot] equal:modifiedContent];
+        [[syncedContent1 should] equal:originalContent];
 
         writeFile(modifiedContent,originalURL);
-        NSDate *dateOriginal2 = [SkyS3SyncManager modificationDateForURL:originalURL];
         
+        
+        NSDate *dateOriginal2 = [SkyS3SyncManager modificationDateForURL:originalURL];
         [[dateOriginal1 should] equal:dateOriginal2];
         
         manager.originalResourcesCopied = NO;
@@ -137,8 +139,29 @@ afterEach(^{
         [[syncedContent2 should] equal:modifiedContent];
     });
     
-    it (@"should not copy the resources if the content differs, but the modification date of the original is older than the synced", ^{
+    it (@"should not copy the resources if the content differs, but the modification date of the synced is newer than original", ^{
+        [manager doSync];
+        NSURL *originalURL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
+        NSURL *syncedURL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
         
+        NSDate *dateSynced1 = [SkyS3SyncManager modificationDateForURL:syncedURL];
+        NSString *modifiedContent = @"test1_modified";
+
+        NSString *originalContent = readFile(originalURL);
+        NSString *syncedContent1 = readFile(syncedURL);
+
+        [[originalContent should] equal:syncedContent1];
+        [NSThread sleepForTimeInterval:1];
+        
+        writeFile(modifiedContent,syncedURL);
+        manager.originalResourcesCopied = NO;
+        [manager sync];
+
+        NSDate *dateSynced2 = [SkyS3SyncManager modificationDateForURL:syncedURL];
+        NSString *syncedContent2 = readFile(syncedURL);
+
+        [[theValue([dateSynced2 timeIntervalSinceDate:dateSynced1]) should] beGreaterThan:theValue(0)];
+        [[syncedContent2 should] equal:modifiedContent];
     });
 });
 

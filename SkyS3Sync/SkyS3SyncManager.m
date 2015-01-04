@@ -110,7 +110,6 @@
     if (!_amazonS3Manager) {
         _amazonS3Manager = [[AFAmazonS3Manager alloc] initWithAccessKeyID:self.S3AccessKey secret:self.S3SecretKey];
         _amazonS3Manager.requestSerializer.bucket = self.S3BucketName;
-        _amazonS3Manager.responseSerializer = [AFOnoResponseSerializer serializer];
         _amazonS3Manager.completionQueue = dispatch_queue_create("AmazonS3Completion", DISPATCH_QUEUE_CONCURRENT);
     }
     return _amazonS3Manager;
@@ -144,21 +143,8 @@
         return;
     }
 
-    NSError *error = nil;
-    NSArray *resources = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:self.originalResourcesDirectory includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLContentModificationDateKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:&error];
-    if (!resources || error) {
-        [self.class log:@"Failed to get directory contents: %@ error: %@",self.originalResourcesDirectory, error];
-    }
-    
-    [[[resources reject:^BOOL(NSURL *URL) { //first we filter out any directories - we work only with files
-        id value;
-        NSError *error = nil;
-        if (![URL getResourceValue:&value forKey:NSURLIsDirectoryKey error:&error]) {
-            [self.class log:@"error getting NSURLIsDirectoryKey from URL: %@ error: %@",URL,error];
-            return NO;
-        }
-        return [value boolValue];
-    }] reject:^BOOL(NSURL *srcURL) { //then for each resource we decide whether it needs to be copied over - we reject those that have the same modification date
+    NSArray *resources = [self resourcesFromDirectory:self.originalResourcesDirectory];
+    [[resources reject:^BOOL(NSURL *srcURL) { //then for each resource we decide whether it needs to be copied over - we reject those that have the same modification date
         NSURL *dstURL = [self dstURLForSrcURL:srcURL];
         if ([[NSFileManager defaultManager] fileExistsAtPath:[dstURL path]]) {
             //getting src modification date:
@@ -180,47 +166,84 @@
             }
         }
         return NO;
-    }] each:^(NSURL *srcURL) { //then each of the picked resources gets copiedls
+    }] each:^(NSURL *srcURL) { //then each of the picked resources gets copied
         NSURL *dstURL = [self dstURLForSrcURL:srcURL];
-        NSError *error = nil;
-        if ([[NSFileManager defaultManager] fileExistsAtPath:[dstURL path]]) {
-            if (![[NSFileManager defaultManager] removeItemAtURL:dstURL error:&error]) {
-                [self.class log:@"Failed to remove existing file before copying: %@ to %@ error: %@",srcURL,dstURL,error];
-            }
-        }
-        if (![[NSFileManager defaultManager] copyItemAtURL:srcURL toURL:dstURL error:&error]) {
-            [self.class log:@"Failed to copy: %@ to %@ error: %@",srcURL,dstURL,error];
-        }
+        [self copyFrom:srcURL to:dstURL];
     }];
     
     self.originalResourcesCopied = YES;
 }
 
 - (void) doAmazonS3Sync {
-    __typeof(self) __weak weakSelf = self;
+    @weakify(self);
+    self.amazonS3Manager.responseSerializer = [AFOnoResponseSerializer serializer];
     [self.amazonS3Manager getBucket:@"/" success:^(id responseObject) {
-        ONOXMLDocument *document = responseObject;
-        [weakSelf.class log:@"document=%@",document];
-        NSMutableArray *remoteFiles = [NSMutableArray array];
-        [document enumerateElementsWithXPath:@"/*/*" usingBlock:^(ONOXMLElement *element, NSUInteger idx, BOOL *stop) {
-            if ([element.tag isEqualToString:@"Contents"]) {
-                SkyS3ManifestData *manifestData = [[SkyS3ManifestData alloc] init];
-                [element.children each:^(ONOXMLElement *child) {
-                    if ([child.tag isEqualToString:@"Key"]) {
-                        manifestData.name = [child stringValue];
-                    } else if ([child.tag isEqualToString:@"LastModified"]) {
-                        manifestData.lastModifiedDate = [child dateValue];
-                    } else if ([child.tag isEqualToString:@"Etag"]) {
-                        manifestData.etag = [child stringValue];
-                    }
-                }];
-                [remoteFiles addObject:manifestData];
-            }
-        }];
-        weakSelf.syncInProgress = NO;
+        @strongify(self);
+        [self processS3ListBucket:responseObject];
     } failure:^(NSError *error) {
-        [weakSelf.class log:@"error = %@", error];
-        weakSelf.syncInProgress = NO;
+        @strongify(self);
+        [self.class log:@"error = %@", error];
+        self.syncInProgress = NO;
+    }];
+}
+
+- (void) processS3ListBucket:(id)responseObject {
+    ONOXMLDocument *document = responseObject;
+    [self.class log:@"document=%@",document];
+    NSMutableArray *remoteResources = [NSMutableArray array];
+    [document enumerateElementsWithXPath:@"/*/*" usingBlock:^(ONOXMLElement *element, NSUInteger idx, BOOL *stop) {
+        if ([element.tag isEqualToString:@"Contents"]) {
+            SkyS3ManifestData *manifestData = [[SkyS3ManifestData alloc] init];
+            [element.children each:^(ONOXMLElement *child) {
+                if ([child.tag isEqualToString:@"Key"]) {
+                    manifestData.name = [child stringValue];
+                } else if ([child.tag isEqualToString:@"LastModified"]) {
+                    manifestData.lastModifiedDate = [child dateValue];
+                } else if ([child.tag isEqualToString:@"Etag"]) {
+                    manifestData.etag = [child stringValue];
+                }
+            }];
+            [remoteResources addObject:manifestData];
+        }
+    }];
+    
+    
+    
+    __block NSUInteger completedCounter = 0;
+    
+    @weakify(self);
+    void(^completedBlock)() = ^{
+        @strongify(self);
+        if (++completedCounter == remoteResources.count) {
+            self.syncInProgress = NO;
+        };
+    };
+
+    NSString* cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
+                                                                NSUserDomainMask,
+                                                                YES) lastObject];
+    NSURL *cachesURL = [NSURL URLWithString:cachesPath];
+    NSArray *localFiles = [self resourcesFromDirectory:self.syncDirectoryURL];
+    [[[[remoteResources map:^(SkyS3ManifestData *resource) {
+        resource.localURL = [localFiles find:^BOOL(NSURL *URL) {
+            return [[URL lastPathComponent] isEqualToString:resource.name];
+        }];
+        return resource;
+    }] reject:^BOOL(SkyS3ManifestData *resource) {
+        return [resource.lastModifiedDate timeIntervalSinceDate:[self.class modificationDateForURL:resource.localURL]]<0;
+    }] reject:^BOOL(SkyS3ManifestData *resource) {
+        return [resource.etag isEqualToString:[self md5ForURL:resource.localURL]];
+    }] each:^(SkyS3ManifestData *resource) {
+        NSURL *tmpURL = [cachesURL URLByAppendingPathComponent:resource.name];
+        NSOutputStream *stream = [[NSOutputStream alloc] initWithURL:tmpURL append:NO];
+        self.amazonS3Manager.responseSerializer = [AFHTTPResponseSerializer serializer];
+        [self.amazonS3Manager getObjectWithPath:resource.name outputStream:stream progress:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
+        } success:^(id responseObject) {
+            [self copyFrom:tmpURL to:resource.localURL];
+            completedBlock();
+        } failure:^(NSError *error) {
+            completedBlock();
+        }];
     }];
 }
 
@@ -255,6 +278,38 @@
 
 - (NSString *)md5ForURL:(NSURL *)URL {
     return [FileHash md5HashOfFileAtPath:[URL path]];
+}
+
+- (NSArray *) resourcesFromDirectory:(NSURL *)URL {
+    NSError *error = nil;
+    NSArray *resources = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:self.originalResourcesDirectory includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLContentModificationDateKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:&error];
+    if (!resources || error) {
+        [self.class log:@"Failed to get directory contents: %@ error: %@",self.originalResourcesDirectory, error];
+    }
+    
+    [resources reject:^BOOL(NSURL *URL) { //first we filter out any directories - we work only with files
+        id value;
+        NSError *error = nil;
+        if (![URL getResourceValue:&value forKey:NSURLIsDirectoryKey error:&error]) {
+            [self.class log:@"error getting NSURLIsDirectoryKey from URL: %@ error: %@",URL,error];
+            return NO;
+        }
+        return [value boolValue];
+    }];
+
+    return resources;
+}
+
+- (void) copyFrom:(NSURL *)srcURL to:(NSURL *)dstURL {
+    NSError *error = nil;
+    if ([[NSFileManager defaultManager] fileExistsAtPath:[dstURL path]]) {
+        if (![[NSFileManager defaultManager] removeItemAtURL:dstURL error:&error]) {
+            [self.class log:@"Failed to remove existing file before copying: %@ to %@ error: %@",srcURL,dstURL,error];
+        }
+    }
+    if (![[NSFileManager defaultManager] copyItemAtURL:srcURL toURL:dstURL error:&error]) {
+        [self.class log:@"Failed to copy: %@ to %@ error: %@",srcURL,dstURL,error];
+    }
 }
 
 @end

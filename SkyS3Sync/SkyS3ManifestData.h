@@ -11,5 +11,7 @@
 @property (nonatomic,strong) NSString *name;
 @property (nonatomic,strong) NSString *etag;
 @property (nonatomic,strong) NSDate *lastModifiedDate;
+@property (nonatomic,strong) NSURL *localURL;
+
 - (instancetype) initWithName:(NSString *)name etag:(NSString *)etag lastModifiedDate:(NSDate *)lastModifiedDate;
 @end

@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Name>test_bucket</Name>
+  <Prefix/>
+  <Marker/>
+  <MaxKeys>1000</MaxKeys>
+  <IsTruncated>false</IsTruncated>
+  <Contents>
+    <Key>test1.txt</Key>
+    <LastModified>2100-11-28T21:35:49.000Z</LastModified>
+    <ETag>"ce6ba783f29dfb7df9455c2d603a64ac"</ETag>
+    <Size>16</Size>
+    <Owner>
+      <ID>no_id</ID>
+      <DisplayName>nobody</DisplayName>
+    </Owner>
+    <StorageClass>STANDARD</StorageClass>
+  </Contents>
+</ListBucketResult>

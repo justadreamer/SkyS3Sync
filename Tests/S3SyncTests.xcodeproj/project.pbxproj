@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		4436A2251A589C160048A676 /* SkyS3ManagerSpec.m in Sources */ = {isa = PBXBuildFile; fileRef = 4436A2241A589C160048A676 /* SkyS3ManagerSpec.m */; };
 		4436A2281A598C340048A676 /* Functions.m in Sources */ = {isa = PBXBuildFile; fileRef = 4436A2271A598C340048A676 /* Functions.m */; };
+		4436A22A1A59CA390048A676 /* list-bucket.xml in Resources */ = {isa = PBXBuildFile; fileRef = 4436A2291A59CA390048A676 /* list-bucket.xml */; };
 		F7DDA599BBBC62EBC33F864F /* libPods.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CAF969A94EC300832DE9A8F7 /* libPods.a */; };
 /* End PBXBuildFile section */
 
@@ -19,6 +20,7 @@
 		4436A2241A589C160048A676 /* SkyS3ManagerSpec.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SkyS3ManagerSpec.m; sourceTree = "<group>"; };
 		4436A2261A598B530048A676 /* Functions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Functions.h; sourceTree = "<group>"; };
 		4436A2271A598C340048A676 /* Functions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Functions.m; sourceTree = "<group>"; };
+		4436A2291A59CA390048A676 /* list-bucket.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "list-bucket.xml"; sourceTree = "<group>"; };
 		CAF969A94EC300832DE9A8F7 /* libPods.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPods.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4B58E2956B6D84AABE42A4C /* Pods.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.release.xcconfig; path = "Pods/Target Support Files/Pods/Pods.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -69,6 +71,7 @@
 				4436A2241A589C160048A676 /* SkyS3ManagerSpec.m */,
 				4436A2261A598B530048A676 /* Functions.h */,
 				4436A2271A598C340048A676 /* Functions.m */,
+				4436A2291A59CA390048A676 /* list-bucket.xml */,
 			);
 			path = S3SyncTests;
 			sourceTree = "<group>";
@@ -146,6 +149,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4436A22A1A59CA390048A676 /* list-bucket.xml in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -163,6 +163,29 @@ afterEach(^{
         [[theValue([dateSynced2 timeIntervalSinceDate:dateSynced1]) should] beGreaterThan:theValue(0)];
         [[syncedContent2 should] equal:modifiedContent];
     });
+    
+    it (@"should copy the file from resources if it did not exist before in the sync directory", ^{
+        
+    });
+    
+    it (@"should update the resource if Amazon offers a newer resource with updated md5", ^{
+        NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"]
+        ;
+
+        stubRequest(@"GET", @"https://test_bucket.s3.amazonaws.com/").
+        andReturn(200).
+        withHeader(@"Content-Type",@"application/xml").
+        withBody(readFile(xmlURL));
+
+        [manager doSync];
+        
+        
+    });
+    
+    it (@"should not update the resource if Amazon offers a newer resource with the same md5", ^{
+        
+    });
+
 });
 
 SPEC_END

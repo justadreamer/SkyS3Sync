@@ -11,10 +11,13 @@
 #import <Kiwi/Kiwi.h>
 #import <SkyS3Sync/SkyS3Sync.h>
 #import <Nocilla/Nocilla.h>
+#import "Functions.h"
 
 @interface SkyS3SyncManager()
 @property (nonatomic,assign) BOOL originalResourcesCopied; //exposing internal state of original resources copied or not
 - (void) doSync; //exposing synchronous sync method
+
++ (NSDate *) modificationDateForURL:(NSURL *)URL;
 @end
 
 SPEC_BEGIN(SkyS3ManagerSpec)
@@ -35,22 +38,7 @@ afterEach(^{
     NSURL *originalResourcesDir = [documentsDir URLByAppendingPathComponent:@"test_dir"];
     NSURL *defaultSyncDir = [documentsDir URLByAppendingPathComponent:@"SkyS3Sync/"];
     
-    void (^delete)(NSURL *) = ^(NSURL *URL) {
-        NSString *path = [URL path];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
-            NSError *error = nil;
-            if (![[NSFileManager defaultManager] removeItemAtPath:path error:&error]) {
-                fail(@"failed to delete the directory: %@, error: %@",path,error);
-            }
-        }
-    };
-    
-    void (^write)(NSString *, NSURL *) = ^(NSString *content, NSURL *URL) {
-        NSError *error = nil;
-        if (![content writeToURL:URL atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
-            fail(@"failed to write to URL: %@, error: %@",URL,error);
-        }
-    };
+    __block SkyS3SyncManager *manager;
     
     beforeEach(^{
         delete(defaultSyncDir);
@@ -61,16 +49,14 @@ afterEach(^{
             fail(@"failed to create directory: %@, error: %@",originalResourcesDir, error);
         }
         
-        write(@"test1",[originalResourcesDir URLByAppendingPathComponent:@"test1.txt"]);
-        write(@"test2",[originalResourcesDir URLByAppendingPathComponent:@"test2.txt"]);
-        write(@"test3",[originalResourcesDir URLByAppendingPathComponent:@"test3.txt"]);
+        writeFile(@"test1",[originalResourcesDir URLByAppendingPathComponent:@"test1.txt"]);
+        writeFile(@"test2",[originalResourcesDir URLByAppendingPathComponent:@"test2.txt"]);
+        writeFile(@"test3",[originalResourcesDir URLByAppendingPathComponent:@"test3.txt"]);
+        
+        manager = [[SkyS3SyncManager alloc]initWithS3AccessKey:@"test_access_key" secretKey:@"test_secret_key" bucketName:@"test_bucket_name" originalResourcesDirectory:originalResourcesDir];
     });
     
     it(@"should create the sync directory at default location", ^{
-        
-        
-        SkyS3SyncManager *manager = [[SkyS3SyncManager alloc]initWithS3AccessKey:@"test_access_key" secretKey:@"test_secret_key" bucketName:@"test_bucket_name" originalResourcesDirectory:originalResourcesDir];
-        
         [[@(manager.originalResourcesCopied) should] beNo];
         [manager doSync];
         [[@(manager.originalResourcesCopied) should] beYes];
@@ -79,6 +65,79 @@ afterEach(^{
     });
     
     it(@"should create the sync directory at specified location", ^{
+        NSString *different = @"DifferentSyncDir";
+        NSURL *differentSyncDir = [documentsDir URLByAppendingPathComponent:different];
+        [[theValue([[NSFileManager defaultManager] fileExistsAtPath:[differentSyncDir path]]) should] beNo];
+        
+        manager.syncDirectoryName = different;
+        [[@(manager.originalResourcesCopied) should] beNo];
+        [manager doSync];
+        [[@(manager.originalResourcesCopied) should] beYes];
+        
+        
+        [[@([[NSFileManager defaultManager] fileExistsAtPath:[differentSyncDir path]]) should] beYes];
+
+        delete(differentSyncDir);
+    });
+    
+    it(@"should copy the resources into the sync directory at specified location", ^{
+        NSArray *syncResources = contentsOfDirectory(defaultSyncDir);
+        [syncResources shouldBeNil];
+
+        [manager doSync];
+
+        syncResources = contentsOfDirectory(defaultSyncDir);
+        [syncResources shouldNotBeNil];
+        NSArray *originalResources = contentsOfDirectory(originalResourcesDir);
+        [[syncResources should] haveCountOf:[originalResources count]];
+    });
+    
+    it(@"should not copy the same resources if the sync resources content is the same as original, even if original ones are newer", ^{
+        [manager doSync];//copy the resources ones
+        NSURL *test1URL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
+        NSDate *dateOriginal1 = [SkyS3SyncManager modificationDateForURL:test1URL];
+        [NSThread sleepForTimeInterval:1]; //needed sot that the dates are different
+
+        writeFile(@"test1",test1URL);
+        NSDate *dateOriginal2 = [SkyS3SyncManager modificationDateForURL:test1URL];
+        [[dateOriginal2 shouldNot] equal:dateOriginal1];
+        [[theValue([dateOriginal2 timeIntervalSinceDate:dateOriginal1]) should] beGreaterThan:theValue(0)];
+
+        manager.originalResourcesCopied = NO;
+        [manager doSync];//copy the resources again
+        
+        NSDate *dateSynced = [SkyS3SyncManager modificationDateForURL:[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
+
+        [[dateOriginal1 should] equal:dateSynced];
+    });
+    
+    it (@"should copy the resources if the content has been modified and the modification date is either same or newer", ^{
+        [manager doSync];
+        NSURL *originalURL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
+        NSURL *syncedURL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
+
+        NSDate *dateOriginal1 = [SkyS3SyncManager modificationDateForURL:originalURL];
+        NSString *modifiedContent = @"test1_modified";
+        NSString *syncedContent1 = readFile(syncedURL);
+        
+        [[syncedContent1 shouldNot] equal:modifiedContent];
+
+        writeFile(modifiedContent,originalURL);
+        NSDate *dateOriginal2 = [SkyS3SyncManager modificationDateForURL:originalURL];
+        
+        [[dateOriginal1 should] equal:dateOriginal2];
+        
+        manager.originalResourcesCopied = NO;
+        [manager doSync];//copy the resources again
+
+        NSDate *dateSynced = [SkyS3SyncManager modificationDateForURL:syncedURL];
+        [[dateSynced should] equal:dateOriginal1];
+
+        NSString *syncedContent2 = readFile(syncedURL);
+        [[syncedContent2 should] equal:modifiedContent];
+    });
+    
+    it (@"should not copy the resources if the content differs, but the modification date of the original is older than the synced", ^{
         
     });
 });

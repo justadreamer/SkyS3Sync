@@ -91,7 +91,7 @@
         if (![[NSFileManager defaultManager] fileExistsAtPath:[_syncDirectoryURL path]]) {
             NSError *error = nil;
             if (![[NSFileManager defaultManager] createDirectoryAtURL:_syncDirectoryURL withIntermediateDirectories:YES attributes:nil error:&error]) {
-                [self log:@"SkyS3SyncManager: failed to create directory at URL: %@, with error: %@",_syncDirectoryURL, error];
+                [self.class log:@"SkyS3SyncManager: failed to create directory at URL: %@, with error: %@",_syncDirectoryURL, error];
                 _syncDirectoryURL = nil;
             }
         }
@@ -147,14 +147,14 @@
     NSError *error = nil;
     NSArray *resources = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:self.originalResourcesDirectory includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLContentModificationDateKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:&error];
     if (!resources || error) {
-        [self log:@"Failed to get directory contents: %@ error: %@",self.originalResourcesDirectory, error];
+        [self.class log:@"Failed to get directory contents: %@ error: %@",self.originalResourcesDirectory, error];
     }
     
     [[[resources reject:^BOOL(NSURL *URL) { //first we filter out any directories - we work only with files
         id value;
         NSError *error = nil;
         if (![URL getResourceValue:&value forKey:NSURLIsDirectoryKey error:&error]) {
-            [self log:@"error getting NSURLIsDirectoryKey from URL: %@ error: %@",URL,error];
+            [self.class log:@"error getting NSURLIsDirectoryKey from URL: %@ error: %@",URL,error];
             return NO;
         }
         return [value boolValue];
@@ -162,14 +162,14 @@
         NSURL *dstURL = [self dstURLForSrcURL:srcURL];
         if ([[NSFileManager defaultManager] fileExistsAtPath:[dstURL path]]) {
             //getting src modification date:
-            NSDate *srcDate = [self modificationDateForURL:srcURL];
+            NSDate *srcDate = [self.class modificationDateForURL:srcURL];
             //getting dst modification date:
-            NSDate *dstDate = [self modificationDateForURL:dstURL];
+            NSDate *dstDate = [self.class modificationDateForURL:dstURL];
             
             //comparing dates
             if (srcDate && dstDate) {
                 //if dates are equal or srcDate is older then we don't copy a resource over
-                if ([srcDate timeIntervalSinceDate:dstDate] <= 0) {
+                if ([srcDate timeIntervalSinceDate:dstDate] < 0) {
                     return YES;
                 } else {
                     //src file is newer - was modified later, let's compare the md5 to check if the content is really modified
@@ -183,8 +183,13 @@
     }] each:^(NSURL *srcURL) { //then each of the picked resources gets copiedls
         NSURL *dstURL = [self dstURLForSrcURL:srcURL];
         NSError *error = nil;
+        if ([[NSFileManager defaultManager] fileExistsAtPath:[dstURL path]]) {
+            if (![[NSFileManager defaultManager] removeItemAtURL:dstURL error:&error]) {
+                [self.class log:@"Failed to remove existing file before copying: %@ to %@ error: %@",srcURL,dstURL,error];
+            }
+        }
         if (![[NSFileManager defaultManager] copyItemAtURL:srcURL toURL:dstURL error:&error]) {
-            [self log:@"Failed to copy: %@ to %@ error: %@",srcURL,dstURL,error];
+            [self.class log:@"Failed to copy: %@ to %@ error: %@",srcURL,dstURL,error];
         }
     }];
     
@@ -195,7 +200,7 @@
     __typeof(self) __weak weakSelf = self;
     [self.amazonS3Manager getBucket:@"/" success:^(id responseObject) {
         ONOXMLDocument *document = responseObject;
-        [weakSelf log:@"document=%@",document];
+        [weakSelf.class log:@"document=%@",document];
         NSMutableArray *remoteFiles = [NSMutableArray array];
         [document enumerateElementsWithXPath:@"/*/*" usingBlock:^(ONOXMLElement *element, NSUInteger idx, BOOL *stop) {
             if ([element.tag isEqualToString:@"Contents"]) {
@@ -214,14 +219,14 @@
         }];
         weakSelf.syncInProgress = NO;
     } failure:^(NSError *error) {
-        [weakSelf log:@"error = %@", error];
+        [weakSelf.class log:@"error = %@", error];
         weakSelf.syncInProgress = NO;
     }];
 }
 
 #pragma mark - logging
 
-- (void) log:(NSString *)format,... {
++ (void) log:(NSString *)format,... {
     #ifdef DEBUG
         va_list args;
         va_start(args, format);
@@ -233,13 +238,15 @@
 
 #pragma mark - auxiliary functions
 
-- (NSDate *) modificationDateForURL:(NSURL *)URL {
-    NSError *error = nil;
++ (NSDate *) modificationDateForURL:(NSURL *)URL {
     NSDate *date = nil;
-    if (![URL getResourceValue:&date forKey:NSURLContentModificationDateKey error:&error]) {
+    NSError *error = nil;
+    NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:[URL path] error:&error];
+    if (!attributes || error) {
         [self log:@"error getting NSURLContentModificationDateKey from URL: %@ error: %@",URL,error];
     }
-    return date;
+    date = attributes[NSFileModificationDate];
+    return date;    
 }
 
 - (NSURL *)dstURLForSrcURL:(NSURL *)srcURL {

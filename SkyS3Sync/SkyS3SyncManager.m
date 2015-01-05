@@ -15,7 +15,7 @@
 #import <libextobjc/extobjc.h>
 #import <FileMD5Hash/FileHash.h>
 
-#import "SkyS3ManifestData.h"
+#import "SkyS3ResourceData.h"
 
 @interface SkyS3SyncManager ()
 /**
@@ -57,6 +57,8 @@
  *  with this property, however make sure this directory exists.
  */
 @property (nonatomic,strong) NSURL *syncDirectoryURL;
+
+@property (nonatomic,strong) dispatch_queue_t dispatchQueue;
 @end
 
 @implementation SkyS3SyncManager
@@ -64,6 +66,7 @@
 #pragma mark - public methods:
 - (instancetype) initWithS3AccessKey:(NSString *)accessKey secretKey:(NSString *)secretKey bucketName:(NSString *)bucketName originalResourcesDirectory:(NSURL *)originalResourcesDirectory {
     if (self = [super init]) {
+        self.dispatchQueue = dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0);
         self.S3AccessKey = accessKey;
         self.S3SecretKey = secretKey;
         self.S3BucketName = bucketName;
@@ -109,8 +112,8 @@
 - (AFAmazonS3Manager *)amazonS3Manager {
     if (!_amazonS3Manager) {
         _amazonS3Manager = [[AFAmazonS3Manager alloc] initWithAccessKeyID:self.S3AccessKey secret:self.S3SecretKey];
+        _amazonS3Manager.completionQueue = self.dispatchQueue;
         _amazonS3Manager.requestSerializer.bucket = self.S3BucketName;
-        _amazonS3Manager.completionQueue = dispatch_queue_create("AmazonS3Completion", DISPATCH_QUEUE_CONCURRENT);
     }
     return _amazonS3Manager;
 }
@@ -121,7 +124,7 @@
     if (!self.syncInProgress) {
         self.syncInProgress = YES;
         @weakify(self)
-        dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
+        dispatch_async(self.dispatchQueue, ^{
             @strongify(self)
             [self doSync];
         });
@@ -188,63 +191,53 @@
 }
 
 - (void) processS3ListBucket:(id)responseObject {
-    ONOXMLDocument *document = responseObject;
-    [self.class log:@"document=%@",document];
-    NSMutableArray *remoteResources = [NSMutableArray array];
-    [document enumerateElementsWithXPath:@"/*/*" usingBlock:^(ONOXMLElement *element, NSUInteger idx, BOOL *stop) {
-        if ([element.tag isEqualToString:@"Contents"]) {
-            SkyS3ManifestData *manifestData = [[SkyS3ManifestData alloc] init];
-            [element.children each:^(ONOXMLElement *child) {
-                if ([child.tag isEqualToString:@"Key"]) {
-                    manifestData.name = [child stringValue];
-                } else if ([child.tag isEqualToString:@"LastModified"]) {
-                    manifestData.lastModifiedDate = [child dateValue];
-                } else if ([child.tag isEqualToString:@"Etag"]) {
-                    manifestData.etag = [child stringValue];
-                }
-            }];
-            [remoteResources addObject:manifestData];
-        }
-    }];
-    
-    
-    
+    NSArray *remoteResources = [self remoteResourcesFromBucketListXML:responseObject];
+    NSArray *localResourceURLs = [self resourcesFromDirectory:self.syncDirectoryURL];
+
     __block NSUInteger completedCounter = 0;
-    
+
     @weakify(self);
-    void(^completedBlock)() = ^{
-        @strongify(self);
-        if (++completedCounter == remoteResources.count) {
+    void (^finishSyncing)() = ^{
+        dispatch_async(dispatch_get_main_queue(), ^{
+            @strongify(self);
             self.syncInProgress = NO;
+        });
+    };
+
+    void(^completedBlock)() = ^{
+        if (++completedCounter == remoteResources.count) {
+            finishSyncing();
         };
     };
 
     NSString* cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
                                                                 NSUserDomainMask,
                                                                 YES) lastObject];
-    NSURL *cachesURL = [NSURL URLWithString:cachesPath];
-    NSArray *localFiles = [self resourcesFromDirectory:self.syncDirectoryURL];
-    [[[[remoteResources map:^(SkyS3ManifestData *resource) {
-        resource.localURL = [localFiles find:^BOOL(NSURL *URL) {
-            return [[URL lastPathComponent] isEqualToString:resource.name];
-        }];
-        return resource;
-    }] reject:^BOOL(SkyS3ManifestData *resource) {
+    NSURL *cachesURL = [NSURL fileURLWithPath:cachesPath];
+    remoteResources = [[remoteResources reject:^BOOL(SkyS3ResourceData *resource) {
         return [resource.lastModifiedDate timeIntervalSinceDate:[self.class modificationDateForURL:resource.localURL]]<0;
-    }] reject:^BOOL(SkyS3ManifestData *resource) {
+    }] reject:^BOOL(SkyS3ResourceData *resource) {
         return [resource.etag isEqualToString:[self md5ForURL:resource.localURL]];
-    }] each:^(SkyS3ManifestData *resource) {
+    }];
+
+    [remoteResources each:^(SkyS3ResourceData *resource) {
+        [self.class log:@"updating %@",resource.name];
         NSURL *tmpURL = [cachesURL URLByAppendingPathComponent:resource.name];
-        NSOutputStream *stream = [[NSOutputStream alloc] initWithURL:tmpURL append:NO];
+        NSOutputStream *stream = [NSOutputStream outputStreamToFileAtPath:[tmpURL path] append:NO];
         self.amazonS3Manager.responseSerializer = [AFHTTPResponseSerializer serializer];
         [self.amazonS3Manager getObjectWithPath:resource.name outputStream:stream progress:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
         } success:^(id responseObject) {
             [self copyFrom:tmpURL to:resource.localURL];
             completedBlock();
+            NSLog(@"did update %@",resource.name);
         } failure:^(NSError *error) {
             completedBlock();
         }];
     }];
+
+    if (remoteResources.count == 0) {
+        finishSyncing();
+    }
 }
 
 #pragma mark - logging
@@ -277,12 +270,38 @@
 }
 
 - (NSString *)md5ForURL:(NSURL *)URL {
-    return [FileHash md5HashOfFileAtPath:[URL path]];
+    NSString *path = [URL path];
+    if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        return [FileHash md5HashOfFileAtPath:path];
+    }
+    return nil;
+}
+
+- (NSArray *)remoteResourcesFromBucketListXML:(ONOXMLDocument *)document {
+    document.dateFormatter.dateFormat = @"yyyy-MM-dd'T'HH:mm:ss.SSSZ";
+    NSMutableArray *remoteResources = [NSMutableArray array];
+    [document enumerateElementsWithXPath:@"/*/*" usingBlock:^(ONOXMLElement *element, NSUInteger idx, BOOL *stop) {
+        if ([element.tag isEqualToString:@"Contents"]) {
+            SkyS3ResourceData *resource = [[SkyS3ResourceData alloc] init];
+            [element.children each:^(ONOXMLElement *child) {
+                if ([child.tag isEqualToString:@"Key"]) {
+                    resource.name = [child stringValue];
+                } else if ([child.tag isEqualToString:@"LastModified"]) {
+                    resource.lastModifiedDate = [child dateValue];
+                } else if ([child.tag isEqualToString:@"ETag"]) {
+                    resource.etag = [[child stringValue] stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\""]];
+                }
+            }];
+            resource.localURL = [self.syncDirectoryURL URLByAppendingPathComponent:resource.name];
+            [remoteResources addObject:resource];
+        }
+    }];
+    return remoteResources;
 }
 
 - (NSArray *) resourcesFromDirectory:(NSURL *)URL {
     NSError *error = nil;
-    NSArray *resources = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:self.originalResourcesDirectory includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLContentModificationDateKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:&error];
+    NSArray *resources = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:URL includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLContentModificationDateKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:&error];
     if (!resources || error) {
         [self.class log:@"Failed to get directory contents: %@ error: %@",self.originalResourcesDirectory, error];
     }

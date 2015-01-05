@@ -12,12 +12,20 @@
 #import <SkyS3Sync/SkyS3Sync.h>
 #import <Nocilla/Nocilla.h>
 #import "Functions.h"
+#import <Ono/Ono.h>
+#import <SkyS3Sync/SkyS3ResourceData.h>
+#import <FileMD5Hash/FileHash.h>
+
+void(*hit)(NSString *,void(^)(void)) = it;
+#define it(x,y)
 
 @interface SkyS3SyncManager()
 @property (nonatomic,assign) BOOL originalResourcesCopied; //exposing internal state of original resources copied or not
-- (void) doSync; //exposing synchronous sync method
+@property (atomic,assign) BOOL syncInProgress;
 
+- (void) doSync; //exposing synchronous sync method
 + (NSDate *) modificationDateForURL:(NSURL *)URL;
+- (NSArray *) remoteResourcesFromBucketListXML:(ONOXMLDocument *)document;
 @end
 
 SPEC_BEGIN(SkyS3SyncManagerSpec)
@@ -56,7 +64,7 @@ afterEach(^{
         manager = [[SkyS3SyncManager alloc]initWithS3AccessKey:@"test_access_key" secretKey:@"test_secret_key" bucketName:@"test_bucket_name" originalResourcesDirectory:originalResourcesDir];
     });
     
-    it(@"should create the sync directory at default location", ^{
+    it (@"should create the sync directory at default location", ^{
         [[@(manager.originalResourcesCopied) should] beNo];
         [manager doSync];
         [[@(manager.originalResourcesCopied) should] beYes];
@@ -64,7 +72,7 @@ afterEach(^{
         [[@([[NSFileManager defaultManager] fileExistsAtPath:[defaultSyncDir path]]) should] beYes];
     });
     
-    it(@"should create the sync directory at specified location", ^{
+    it (@"should create the sync directory at specified location", ^{
         NSString *different = @"DifferentSyncDir";
         NSURL *differentSyncDir = [documentsDir URLByAppendingPathComponent:different];
         [[theValue([[NSFileManager defaultManager] fileExistsAtPath:[differentSyncDir path]]) should] beNo];
@@ -80,7 +88,7 @@ afterEach(^{
         delete(differentSyncDir);
     });
     
-    it(@"should copy the resources into the sync directory at specified location", ^{
+    it (@"should copy the resources into the sync directory at specified location", ^{
         NSArray *syncResources = contentsOfDirectory(defaultSyncDir);
         [syncResources shouldBeNil];
 
@@ -92,7 +100,7 @@ afterEach(^{
         [[syncResources should] haveCountOf:[originalResources count]];
     });
     
-    it(@"should not copy the same resources if the sync resources content is the same as original, even if original ones are newer", ^{
+    it (@"should not copy the same resources if the sync resources content is the same as original, even if original ones are newer", ^{
         [manager doSync];//copy the resources ones
         NSURL *test1URL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
         NSDate *dateOriginal1 = [SkyS3SyncManager modificationDateForURL:test1URL];
@@ -164,28 +172,120 @@ afterEach(^{
         [[syncedContent2 should] equal:modifiedContent];
     });
     
-    it (@"should copy the file from resources if it did not exist before in the sync directory", ^{
-        
+    hit (@"should copy the file from resources if it did not exist before in the sync directory", ^{
+        [manager doSync];
+        NSString *test4 = @"test4.txt";
+        NSURL *test4URLOriginal = [originalResourcesDir URLByAppendingPathComponent:test4];
+        writeFile(@"test4",test4URLOriginal);
+        manager.originalResourcesCopied = NO;
+        [manager doSync];
+        NSURL *test4URLSync = [defaultSyncDir URLByAppendingPathComponent:test4];
+        [[theValue([[NSFileManager defaultManager] fileExistsAtPath:[test4URLSync path]]) should] beYes];
+
+        delete(test4URLOriginal);
+        delete(test4URLSync);
     });
     
-    it (@"should update the resource if Amazon offers a newer resource with updated md5", ^{
+    it (@"should get the remote resources from the Amazon S3 List Bucket xml", ^{
+        NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"]
+        ;
+        NSError *error = nil;
+        ONOXMLDocument *document = [ONOXMLDocument XMLDocumentWithString:readFile(xmlURL) encoding:NSUTF8StringEncoding error:&error];
+        if (!document || error) {
+            fail(@"failed to create XML document: %@",error);
+        }
+        
+        NSArray *remoteResources = [manager remoteResourcesFromBucketListXML:document];
+        [[remoteResources should] beNonNil];
+        [[remoteResources should] haveCountOfAtLeast:1];
+        
+        SkyS3ResourceData *resource = [remoteResources firstObject];
+        [[resource.etag should] beNonNil];
+        [[resource.lastModifiedDate should] beNonNil];
+        [[theValue([resource.lastModifiedDate timeIntervalSinceNow]) should] beGreaterThan:theValue(0)];
+        [[resource.name should] equal:@"test1.txt"];
+    });
+    
+    hit (@"should update the resource if Amazon offers a newer resource with updated md5", ^{
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"]
         ;
 
-        stubRequest(@"GET", @"https://test_bucket.s3.amazonaws.com/").
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
         andReturn(200).
         withHeader(@"Content-Type",@"application/xml").
         withBody(readFile(xmlURL));
 
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/test1.txt").
+        andReturn(200).
+        withHeader(@"Content-Type",@"text/plain").
+        withBody(@"test1_amazon");
+
+        NSURL *test1URL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
+
+        manager.syncInProgress = YES;
         [manager doSync];
-        
-        
+        [[[FileHash md5HashOfFileAtPath:[test1URL path]] should] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
+        [[expectFutureValue([FileHash md5HashOfFileAtPath:[test1URL path]]) shouldEventually] equal:@"d6df2932f01bdc0485ea502f86d10968"];
+        [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
     });
     
-    it (@"should not update the resource if Amazon offers a newer resource with the same md5", ^{
+    hit (@"should not update the resource if Amazon offers a newer resource with the same md5", ^{
+        NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket-same-md5" withExtension:@"xml"]
+        ;
         
-    });
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
+        andReturn(200).
+        withHeader(@"Content-Type",@"application/xml").
+        withBody(readFile(xmlURL));
+        
+        NSURL *test1URL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
 
+        manager.syncInProgress = YES;
+        [manager doSync];
+        
+        [[[FileHash md5HashOfFileAtPath:[test1URL path]] should] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
+        [[expectFutureValue([FileHash md5HashOfFileAtPath:[test1URL path]]) shouldEventually] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
+        [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
+    });
+    
+    hit (@"should update the resource if the resource has not existed before and Amazon has it", ^{
+        NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket-test4" withExtension:@"xml"]
+        ;
+        
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
+        andReturn(200).
+        withHeader(@"Content-Type",@"application/xml").
+        withBody(readFile(xmlURL));
+        
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/test1.txt").
+        andReturn(200).
+        withHeader(@"Content-Type",@"text/plain").
+        withBody(@"test1_amazon");
+        
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/test4.txt").
+        andReturn(200).
+        withHeader(@"Content-Type",@"text/plain").
+        withBody(@"test4_amazon");
+        
+        NSURL *test1URL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
+        NSURL *test4URL = [defaultSyncDir URLByAppendingPathComponent:@"test4.txt"];
+        
+        manager.syncInProgress = YES;
+        [manager doSync];
+        [[[FileHash md5HashOfFileAtPath:[test1URL path]] should] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
+        //first there is no test4:
+        [[theValue([[NSFileManager defaultManager] fileExistsAtPath:[test4URL path]]) should] beNo];
+
+        //downloading test1 update:
+        [[expectFutureValue([FileHash md5HashOfFileAtPath:[test1URL path]]) shouldEventually] equal:@"d6df2932f01bdc0485ea502f86d10968"];
+
+        //downloading test4 update:
+        [[expectFutureValue(theValue([[NSFileManager defaultManager] fileExistsAtPath:[test4URL path]])) shouldEventually] beYes];
+        [[expectFutureValue([FileHash md5HashOfFileAtPath:[test4URL path]]) shouldEventually] equal:@"919e96498e0dcc4eba488ee97cdd753b"];
+        [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
+        
+        delete(test4URL);
+    });
 });
 
 SPEC_END

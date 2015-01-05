@@ -16,4 +16,15 @@
     </Owner>
     <StorageClass>STANDARD</StorageClass>
   </Contents>
+  <Contents>
+    <Key>test4.txt</Key>
+    <LastModified>2100-11-28T21:35:50.000Z</LastModified>
+    <ETag>"919e96498e0dcc4eba488ee97cdd753b"</ETag>
+    <Size>16</Size>
+    <Owner>
+      <ID>no_id</ID>
+      <DisplayName>nobody</DisplayName>
+    </Owner>
+    <StorageClass>STANDARD</StorageClass>
+  </Contents>  
 </ListBucketResult>

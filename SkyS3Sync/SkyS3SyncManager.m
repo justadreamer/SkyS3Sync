@@ -18,8 +18,8 @@
 #import "SkyS3ResourceData.h"
 
 NSString * const SkyS3SyncDidUpdateResourceNotification = @"SkyS3SyncDidUpdateResource";
-NSString * const SkyS3ResourceNameKey = @"SkyS3ResourceName";
-NSString * const SkyS3ResourceExtensionKey = @"SkyS3ResourceExtension";
+NSString * const SkyS3ResourceFileName = @"SkyS3ResourceFileName";
+NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
 
 @interface SkyS3SyncManager ()
 /**
@@ -60,7 +60,7 @@ NSString * const SkyS3ResourceExtensionKey = @"SkyS3ResourceExtension";
  *  By default the sync directory is auto-created in an internal location.  You can specify your own directory
  *  with this property, however make sure this directory exists.
  */
-@property (nonatomic,strong) NSURL *syncDirectoryURL;
+@property (nonatomic,readwrite,strong) NSURL *syncDirectoryURL;
 
 @property (nonatomic,strong) dispatch_queue_t dispatchQueue;
 @end
@@ -78,20 +78,25 @@ NSString * const SkyS3ResourceExtensionKey = @"SkyS3ResourceExtension";
     }
     return self;
 }
+
 #pragma mark - SkyResourceProvider
+
 - (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext {
     NSString *resourceFileName = [name stringByAppendingPathExtension:ext];
+    return [self URLForResourceWithFileName:resourceFileName];
+}
 
-    NSURL *URL = [NSURL URLWithString:resourceFileName relativeToURL:self.syncDirectoryURL];
+- (NSURL *)URLForResourceWithFileName:(NSString *)fileName {
+    NSURL *URL = [NSURL URLWithString:fileName relativeToURL:self.syncDirectoryURL];
     if ([[NSFileManager defaultManager] fileExistsAtPath:[URL path]]) {
         return URL;
     }
     
-    URL = [NSURL URLWithString:resourceFileName relativeToURL:self.originalResourcesDirectory];
+    URL = [NSURL URLWithString:fileName relativeToURL:self.originalResourcesDirectory];
     if ([[NSFileManager defaultManager] fileExistsAtPath:[URL path]]) {
         return URL;
     }
-
+    
     return nil;
 }
 
@@ -189,6 +194,7 @@ NSString * const SkyS3ResourceExtensionKey = @"SkyS3ResourceExtension";
     }] each:^(NSURL *srcURL) { //then each of the picked resources gets copied
         NSURL *dstURL = [self dstURLForSrcURL:srcURL];
         [self copyFrom:srcURL to:dstURL];
+        [self postDidUpdateNotificationWithResource:[dstURL lastPathComponent]];
     }];
     
     self.originalResourcesCopied = YES;
@@ -208,7 +214,7 @@ NSString * const SkyS3ResourceExtensionKey = @"SkyS3ResourceExtension";
 }
 
 - (void) processS3ListBucket:(id)responseObject {
-    NSArray *remoteResources = [self remoteResourcesFromBucketListXML:responseObject];
+    __block NSArray *remoteResources = [self remoteResourcesFromBucketListXML:responseObject];
 
     __block NSUInteger completedCounter = 0;
 
@@ -229,6 +235,7 @@ NSString * const SkyS3ResourceExtensionKey = @"SkyS3ResourceExtension";
     NSString* cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
                                                                 NSUserDomainMask,
                                                                 YES) lastObject];
+
     NSURL *cachesURL = [NSURL fileURLWithPath:cachesPath];
     remoteResources = [[remoteResources reject:^BOOL(SkyS3ResourceData *resource) {
         return [resource.lastModifiedDate timeIntervalSinceDate:[self.class modificationDateForURL:resource.localURL]]<0;
@@ -257,17 +264,13 @@ NSString * const SkyS3ResourceExtensionKey = @"SkyS3ResourceExtension";
     }
 }
 
-- (void) postDidUpdateNotificationWithResource:(NSString *)resource {
+- (void) postDidUpdateNotificationWithResource:(NSString *)resourceFileName {
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSArray *components = [resource split:@"."];
-        NSString *name = [components firstObject]; name = name ? name : @"";
-        NSString *extension = components.count > 1 ? components[1] : @"";
-
         [[NSNotificationCenter defaultCenter] postNotificationName:SkyS3SyncDidUpdateResourceNotification
                                                             object:self
                                                           userInfo:@{
-                                                                     SkyS3ResourceNameKey:name,
-                                                                     SkyS3ResourceExtensionKey:extension
+                                                                     SkyS3ResourceFileName:resourceFileName,
+                                                                     SkyS3ResourceURL:[self URLForResourceWithFileName:resourceFileName]
                                                                      }];
     });
 }

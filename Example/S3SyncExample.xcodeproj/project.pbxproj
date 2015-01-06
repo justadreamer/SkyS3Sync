@@ -11,9 +11,12 @@
 		4436A2051A5847B60048A676 /* LaunchScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = 4436A1FB1A5847B60048A676 /* LaunchScreen.xib */; };
 		4436A2061A5847B60048A676 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4436A1FD1A5847B60048A676 /* Main.storyboard */; };
 		4436A2071A5847B60048A676 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4436A1FF1A5847B60048A676 /* Images.xcassets */; };
-		4436A2091A5847B60048A676 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4436A2021A5847B60048A676 /* ViewController.m */; };
 		4436A20A1A5847B60048A676 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 4436A2031A5847B60048A676 /* main.m */; };
 		4436A20C1A58554E0048A676 /* test_dir in Resources */ = {isa = PBXBuildFile; fileRef = 4436A20B1A58554E0048A676 /* test_dir */; };
+		4448E19F1A5C06C800D82787 /* MasterViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4448E19E1A5C06C800D82787 /* MasterViewController.m */; };
+		4448E1A21A5C06E800D82787 /* DetailViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4448E1A11A5C06E800D82787 /* DetailViewController.m */; };
+		4448E1AA1A5C0FED00D82787 /* MasterViewModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 4448E1A91A5C0FED00D82787 /* MasterViewModel.m */; };
+		4448E1AE1A5C276B00D82787 /* DetailViewModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 4448E1AD1A5C276B00D82787 /* DetailViewModel.m */; };
 		73A1358E5FF8BB47176C8227 /* libPods.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7B593FE573BF160B05F0C6E1 /* libPods.a */; };
 /* End PBXBuildFile section */
 
@@ -25,10 +28,18 @@
 		4436A1FE1A5847B60048A676 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		4436A1FF1A5847B60048A676 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		4436A2001A5847B60048A676 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		4436A2011A5847B60048A676 /* ViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
-		4436A2021A5847B60048A676 /* ViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
 		4436A2031A5847B60048A676 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		4436A20B1A58554E0048A676 /* test_dir */ = {isa = PBXFileReference; lastKnownFileType = folder; name = test_dir; path = ../../test_dir; sourceTree = "<group>"; };
+		4448E19D1A5C06C800D82787 /* MasterViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MasterViewController.h; sourceTree = "<group>"; };
+		4448E19E1A5C06C800D82787 /* MasterViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MasterViewController.m; sourceTree = "<group>"; };
+		4448E1A01A5C06E800D82787 /* DetailViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DetailViewController.h; sourceTree = "<group>"; };
+		4448E1A11A5C06E800D82787 /* DetailViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DetailViewController.m; sourceTree = "<group>"; };
+		4448E1A61A5C0A4800D82787 /* S3Secrets.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = S3Secrets.h; sourceTree = "<group>"; };
+		4448E1A71A5C0AC000D82787 /* S3Secrets_Example.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = S3Secrets_Example.h; sourceTree = "<group>"; };
+		4448E1A81A5C0FED00D82787 /* MasterViewModel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MasterViewModel.h; sourceTree = "<group>"; };
+		4448E1A91A5C0FED00D82787 /* MasterViewModel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MasterViewModel.m; sourceTree = "<group>"; };
+		4448E1AC1A5C276B00D82787 /* DetailViewModel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DetailViewModel.h; sourceTree = "<group>"; };
+		4448E1AD1A5C276B00D82787 /* DetailViewModel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DetailViewModel.m; sourceTree = "<group>"; };
 		449E26BE1A252AA7003BDD01 /* S3SyncExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = S3SyncExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B593FE573BF160B05F0C6E1 /* libPods.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPods.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		E635E998C1CBB4165FC196D9 /* Pods.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = Pods.debug.xcconfig; path = "Pods/Target Support Files/Pods/Pods.debug.xcconfig"; sourceTree = "<group>"; };
@@ -63,12 +74,36 @@
 				4436A1FB1A5847B60048A676 /* LaunchScreen.xib */,
 				4436A1FD1A5847B60048A676 /* Main.storyboard */,
 				4436A1FF1A5847B60048A676 /* Images.xcassets */,
-				4436A2011A5847B60048A676 /* ViewController.h */,
-				4436A2021A5847B60048A676 /* ViewController.m */,
 				4436A2001A5847B60048A676 /* Info.plist */,
 				4436A2031A5847B60048A676 /* main.m */,
+				4448E1AB1A5C0FF700D82787 /* Master */,
+				4448E1AF1A5C277200D82787 /* Detail */,
+				4448E1A61A5C0A4800D82787 /* S3Secrets.h */,
+				4448E1A71A5C0AC000D82787 /* S3Secrets_Example.h */,
 			);
 			path = S3SyncExample;
+			sourceTree = "<group>";
+		};
+		4448E1AB1A5C0FF700D82787 /* Master */ = {
+			isa = PBXGroup;
+			children = (
+				4448E19D1A5C06C800D82787 /* MasterViewController.h */,
+				4448E19E1A5C06C800D82787 /* MasterViewController.m */,
+				4448E1A81A5C0FED00D82787 /* MasterViewModel.h */,
+				4448E1A91A5C0FED00D82787 /* MasterViewModel.m */,
+			);
+			name = Master;
+			sourceTree = "<group>";
+		};
+		4448E1AF1A5C277200D82787 /* Detail */ = {
+			isa = PBXGroup;
+			children = (
+				4448E1A01A5C06E800D82787 /* DetailViewController.h */,
+				4448E1A11A5C06E800D82787 /* DetailViewController.m */,
+				4448E1AC1A5C276B00D82787 /* DetailViewModel.h */,
+				4448E1AD1A5C276B00D82787 /* DetailViewModel.m */,
+			);
+			name = Detail;
 			sourceTree = "<group>";
 		};
 		449E26B51A252AA7003BDD01 = {
@@ -204,9 +239,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4436A2091A5847B60048A676 /* ViewController.m in Sources */,
+				4448E1A21A5C06E800D82787 /* DetailViewController.m in Sources */,
+				4448E1AE1A5C276B00D82787 /* DetailViewModel.m in Sources */,
+				4448E19F1A5C06C800D82787 /* MasterViewController.m in Sources */,
 				4436A20A1A5847B60048A676 /* main.m in Sources */,
 				4436A2041A5847B60048A676 /* AppDelegate.m in Sources */,
+				4448E1AA1A5C0FED00D82787 /* MasterViewModel.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

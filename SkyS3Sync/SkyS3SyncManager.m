@@ -132,6 +132,8 @@
 }
 
 - (void) doSync {
+    self.syncInProgress = YES;
+
     NSAssert(self.S3AccessKey, @"S3AccessKey not set");
     NSAssert(self.S3SecretKey, @"S3SecretKey not set");
     NSAssert(self.S3BucketName, @"S3BucketName not set");
@@ -192,7 +194,6 @@
 
 - (void) processS3ListBucket:(id)responseObject {
     NSArray *remoteResources = [self remoteResourcesFromBucketListXML:responseObject];
-    NSArray *localResourceURLs = [self resourcesFromDirectory:self.syncDirectoryURL];
 
     __block NSUInteger completedCounter = 0;
 
@@ -229,7 +230,7 @@
         } success:^(id responseObject) {
             [self copyFrom:tmpURL to:resource.localURL];
             completedBlock();
-            NSLog(@"did update %@",resource.name);
+            [self.class log:@"did update %@",resource.name];
         } failure:^(NSError *error) {
             completedBlock();
         }];

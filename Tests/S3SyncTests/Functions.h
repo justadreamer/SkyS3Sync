@@ -9,12 +9,12 @@
 #ifndef S3SyncTests_Functions_h
 #define S3SyncTests_Functions_h
 
-extern void (^delete)(NSURL *);
+void delete(NSURL *);
 
-extern void (^writeFile)(NSString *, NSURL *);
+void writeFile(NSString *, NSURL *);
 
-extern NSString *(^readFile)(NSURL *);
+NSString *readFile(NSURL *);
 
-extern NSArray *(^contentsOfDirectory)(NSURL *);
+NSArray *contentsOfDirectory(NSURL *);
 
 #endif

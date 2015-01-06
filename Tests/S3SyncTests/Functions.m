@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 #import <Kiwi/Kiwi.h>
 
-void (^delete)(NSURL *) = ^(NSURL *URL) {
+void delete(NSURL *URL) {
     NSString *path = [URL path];
     if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
         NSError *error = nil;
@@ -19,14 +19,14 @@ void (^delete)(NSURL *) = ^(NSURL *URL) {
     }
 };
 
-void (^writeFile)(NSString *, NSURL *) = ^(NSString *content, NSURL *URL) {
+void writeFile(NSString *content, NSURL *URL) {
     NSError *error = nil;
     if (![content writeToURL:URL atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
         fail(@"failed to write to URL: %@, error: %@",URL,error);
     }
 };
 
-NSString *(^readFile)(NSURL *) = ^NSString *(NSURL *URL) {
+NSString *readFile(NSURL *URL) {
     NSError *error = nil;
     NSString *content = [NSString stringWithContentsOfURL:URL encoding:NSUTF8StringEncoding error:&error];
     if (!content || error) {
@@ -35,7 +35,7 @@ NSString *(^readFile)(NSURL *) = ^NSString *(NSURL *URL) {
     return content;
 };
 
-NSArray *(^contentsOfDirectory)(NSURL *) = ^NSArray *(NSURL *URL) {
+NSArray *contentsOfDirectory(NSURL *URL) {
     NSError *error = nil;
     NSArray *resources = [[NSFileManager defaultManager] contentsOfDirectoryAtURL:URL includingPropertiesForKeys:nil options:0 error:&error];
     return resources;

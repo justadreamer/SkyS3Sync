@@ -8,6 +8,9 @@
 
 #import <Foundation/Foundation.h>
 
+extern NSString * const SkyS3SyncDidUpdateResourceNotification;
+extern NSString * const SkyS3ResourceNameKey;
+extern NSString * const SkyS3ResourceExtensionKey;
 
 /**
  *  A simple protocol that allows to inject either SkyS3SyncManger or NSBundle instance as a 
@@ -24,7 +27,6 @@
  */
 - (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext;
 @end
-
 
 /**
  *  A simple S3 syncing service, which syncs the contents of the S3BucketName to 

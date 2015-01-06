@@ -17,6 +17,10 @@
 
 #import "SkyS3ResourceData.h"
 
+NSString * const SkyS3SyncDidUpdateResourceNotification = @"SkyS3SyncDidUpdateResource";
+NSString * const SkyS3ResourceNameKey = @"SkyS3ResourceName";
+NSString * const SkyS3ResourceExtensionKey = @"SkyS3ResourceExtension";
+
 @interface SkyS3SyncManager ()
 /**
  *  Amazon S3 Access Key
@@ -77,7 +81,18 @@
 #pragma mark - SkyResourceProvider
 - (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext {
     NSString *resourceFileName = [name stringByAppendingPathExtension:ext];
-    return [NSURL URLWithString:resourceFileName relativeToURL:self.syncDirectoryURL];
+
+    NSURL *URL = [NSURL URLWithString:resourceFileName relativeToURL:self.syncDirectoryURL];
+    if ([[NSFileManager defaultManager] fileExistsAtPath:[URL path]]) {
+        return URL;
+    }
+    
+    URL = [NSURL URLWithString:resourceFileName relativeToURL:self.originalResourcesDirectory];
+    if ([[NSFileManager defaultManager] fileExistsAtPath:[URL path]]) {
+        return URL;
+    }
+
+    return nil;
 }
 
 #pragma mark - lazy initializers
@@ -231,6 +246,7 @@
             [self copyFrom:tmpURL to:resource.localURL];
             completedBlock();
             [self.class log:@"did update %@",resource.name];
+            [self postDidUpdateNotificationWithResource:resource.name];
         } failure:^(NSError *error) {
             completedBlock();
         }];
@@ -239,6 +255,21 @@
     if (remoteResources.count == 0) {
         finishSyncing();
     }
+}
+
+- (void) postDidUpdateNotificationWithResource:(NSString *)resource {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSArray *components = [resource split:@"."];
+        NSString *name = [components firstObject]; name = name ? name : @"";
+        NSString *extension = components.count > 1 ? components[1] : @"";
+
+        [[NSNotificationCenter defaultCenter] postNotificationName:SkyS3SyncDidUpdateResourceNotification
+                                                            object:self
+                                                          userInfo:@{
+                                                                     SkyS3ResourceNameKey:name,
+                                                                     SkyS3ResourceExtensionKey:extension
+                                                                     }];
+    });
 }
 
 #pragma mark - logging

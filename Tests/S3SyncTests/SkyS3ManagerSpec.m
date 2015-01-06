@@ -20,17 +20,18 @@ void(*hit)(NSString *,void(^)(void)) = it;
 //#define it(x,y)
 
 @interface SkyS3SyncManager()
-@property (nonatomic,assign) BOOL originalResourcesCopied; //exposing internal state of original resources copied or not
+@property (nonatomic,assign) BOOL originalResourcesCopied;
 @property (atomic,assign) BOOL syncInProgress;
 
-- (void) doSync; //exposing synchronous sync method
+- (void) doSync;
 + (NSDate *) modificationDateForURL:(NSURL *)URL;
 - (NSArray *) remoteResourcesFromBucketListXML:(ONOXMLDocument *)document;
+- (void) postDidUpdateNotificationWithResource:(NSString *)resource;
 @end
 
 SPEC_BEGIN(SkyS3SyncManagerSpec)
 describe(@"SkyS3ManagerSpec", ^{
-    
+
     //common variables:
     NSURL *documentsDir = [[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask] firstObject];
     NSURL *originalResourcesDir = [documentsDir URLByAppendingPathComponent:@"test_dir"];
@@ -229,6 +230,7 @@ describe(@"SkyS3ManagerSpec", ^{
     });
     
     it (@"should update the local resource if Amazon offers a newer resource with a different md5", ^{
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withArguments:@"test1.txt"];
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         NSURL *test1URL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
@@ -315,6 +317,9 @@ describe(@"SkyS3ManagerSpec", ^{
     });
 
     it (@"should download the resource from Amazon if it did not exist locally", ^{
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withArguments:@"test1.txt"];
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withArguments:@"test4.txt"];
+
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket-test4" withExtension:@"xml"]
         ;
         

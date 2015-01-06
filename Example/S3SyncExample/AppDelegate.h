@@ -14,7 +14,5 @@
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 @property (nonatomic,readonly) SkyS3SyncManager *s3SyncManager;
 @property (strong, nonatomic) UIWindow *window;
-
-
 @end
 

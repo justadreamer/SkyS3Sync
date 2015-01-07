@@ -4,6 +4,13 @@
 
 A simple resource manager that allows to remotely update app's resources via Amazon S3.  Basically the manager hosts a local mirror of the Amazon S3 bucket.
 
+##Cocoapod
+It is planned to publish the spec to the main Specs repo in the near future, however for now please use:
+
+```
+pod 'SkyS3Sync', :git => "git@github.com:justadreamer/SkyS3Sync.git"
+```
+
 ##Integration
 
 SkyS3SyncManager class is not a singleton (to allow f.e. for syncing several S3 buckets each with its own separate manager).  Thus it is best to create a 'sticky' instance belonging to an object which has a significantly long life-time.  For the simplest use case it can be your application delegate object.  Below is a suggested integration snippet (taken from the Example project):
@@ -11,7 +18,9 @@ SkyS3SyncManager class is not a singleton (to allow f.e. for syncing several S3 
 AppDelegate.h:
 
 ```objective-c
-
+	
+	#import <SkyS3Sync/SkyS3Sync.h>
+	
 	#define AD ((AppDelegate *)[[UIApplication sharedApplication] delegate])
 
 	@interface AppDelegate : UIResponder <UIApplicationDelegate>

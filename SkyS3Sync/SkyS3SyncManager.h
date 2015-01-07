@@ -13,35 +13,10 @@ extern NSString * const SkyS3ResourceFileName;
 extern NSString * const SkyS3ResourceURL;
 
 /**
- *  A simple protocol that allows to inject either SkyS3SyncManger or NSBundle instance as a 
- *  provider of some stored resource
- */
-@protocol SkyResourceProvider
-/**
- *  To get a URL of the particular resource of the latest synced version
- *
- *  @param name filename of the resource
- *  @param ext  extension of the resource
- *
- *  @return a URL to the particular resource
- */
-- (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext;
-
-/**
- *  To get a URL of the particular resource of the last synced version
- *
- *  @param fileName filename (including extension) of the resource
- *
- *  @return a URL to the particular resource
- */
-- (NSURL *)URLForResourceWithFileName:(NSString *)fileName;
-@end
-
-/**
  *  A simple S3 syncing service, which syncs the contents of the S3BucketName to 
  *  an internal local directory
  */
-@interface SkyS3SyncManager : NSObject<SkyResourceProvider>
+@interface SkyS3SyncManager : NSObject
 
 /**
  *  by default the sync directory name is SkyS3Sync, and it is stored under Documents, you can specify an arbitrary name for it (in case f.e. of name 
@@ -74,5 +49,24 @@ extern NSString * const SkyS3ResourceURL;
  *  and sync down any updated files.
  */
 - (void) sync;
+
+/**
+ *  To get a URL of the particular resource of the latest synced version
+ *
+ *  @param name filename of the resource
+ *  @param ext  extension of the resource
+ *
+ *  @return a URL to the particular resource
+ */
+- (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext;
+
+/**
+ *  To get a URL of the particular resource of the last synced version
+ *
+ *  @param fileName filename (including extension) of the resource
+ *
+ *  @return a URL to the particular resource
+ */
+- (NSURL *)URLForResourceWithFileName:(NSString *)fileName;
 
 @end

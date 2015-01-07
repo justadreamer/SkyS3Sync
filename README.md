@@ -6,7 +6,7 @@ A simple resource manager that allows to remotely update app's resources via Ama
 
 ##Integration
 
-SkyS3SyncManager class is not a singleton (to allow f.e. for syncing several S3 buckets each with its own separate manager).  Thus it is best to create a 'sticky' instance belonging to an object which has a significantly long life-time.  For the simplest use case it can be your application delegate object.  Below is a suggested integration snippet (taken from the Example):
+SkyS3SyncManager class is not a singleton (to allow f.e. for syncing several S3 buckets each with its own separate manager).  Thus it is best to create a 'sticky' instance belonging to an object which has a significantly long life-time.  For the simplest use case it can be your application delegate object.  Below is a suggested integration snippet (taken from the Example project):
 
 AppDelegate.h:
 
@@ -51,3 +51,34 @@ AppDelegate.m:
 	@end
 
 ```
+
+Then in code you can call:
+
+```objective-c
+
+	#include "AppDelegate.h"
+	
+	//...
+	NSURL *URL = [AD.s3SyncManager URLForResourceWithFileName:@"<#filename#>"];
+	//or:
+	NSURL *URL = [AD.s3Sync URLForResource:@"<#filename#>" withExtension:@"<#extension#>"];
+
+
+##Directories
+By default SkyS3SyncManager creates SkyS3Sync directory under app's Documents directory.  However you can specify a different directory (f.e. if syncing several different buckets and they appear to have files with the same names) using the property of SkyS3SyncManager:
+
+```objective-c
+
+	@property (nonatomic,strong) NSString *syncDirectoryName;
+```
+
+##Syncing strategy
+The local file under sync directory is updated (fetched from Amazon or overwritten by a newer version provided under app's resource bundle) only in case the remote file is:
+a) newer than the local version (by file's modification time)
+b) md5 of the remote file is different than of the local file (i.e. the remote file has a different content)
+
+In this case the newer version is downloaded and the local older version is overwritten.
+
+There is no delete strategy currently implemented.  That is a TODO.  
+
+If the local version of the file does not exist under sync directory, and there is a remote version - it is downloaded and saved under the sync directory.

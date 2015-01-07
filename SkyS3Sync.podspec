@@ -11,10 +11,10 @@ Pod::Spec.new do |s|
   s.homepage = 'https://github.com/justadreamer/SkyS3Sync'
   s.source_files = ['SkyS3Sync/*.{h,m}']
 
-  s.dependency 'libextobjc'
-  s.dependency 'AFAmazonS3Manager'
-  s.dependency 'AFOnoResponseSerializer'
-  s.dependency 'ObjectiveSugar'
+  s.dependency 'libextobjc', '~> 0.4.1'
+  s.dependency 'AFAmazonS3Manager', '~> 3.0.0'
+  s.dependency 'AFOnoResponseSerializer', '~> 1.0.0'
+  s.dependency 'ObjectiveSugar', '~> 1.1.0'
   s.dependency 'FileMD5Hash', '~> 2.0'
 
 end

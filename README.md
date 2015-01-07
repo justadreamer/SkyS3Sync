@@ -63,7 +63,6 @@ Then in code you can call:
 	//or:
 	NSURL *URL = [AD.s3Sync URLForResource:@"<#filename#>" withExtension:@"<#extension#>"];
 
-
 ##Directories
 By default SkyS3SyncManager creates SkyS3Sync directory under app's Documents directory.  However you can specify a different directory (f.e. if syncing several different buckets and they appear to have files with the same names) using the property of SkyS3SyncManager:
 
@@ -82,3 +81,8 @@ In this case the newer version is downloaded and the local older version is over
 There is no delete strategy currently implemented.  That is a TODO.  
 
 If the local version of the file does not exist under sync directory, and there is a remote version - it is downloaded and saved under the sync directory.
+
+
+##Uploading resources to Amazon
+For distributing the modified resources to your app instances in the wild - you obviously would need to upload the files to Amazon.  Although it is slightly out of scope of this library project - there is a recommended command line utility to use: s3cmd, and there is a script that wraps the command line utility s3sync.sh - allowing you to simply upload all changed files from the local directory to remote Amazon bucket.
+

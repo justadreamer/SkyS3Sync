@@ -71,6 +71,7 @@ Then in code you can call:
 	NSURL *URL = [AD.s3SyncManager URLForResourceWithFileName:@"<#filename#>"];
 	//or:
 	NSURL *URL = [AD.s3Sync URLForResource:@"<#filename#>" withExtension:@"<#extension#>"];
+```
 
 ##Directories
 By default SkyS3SyncManager creates SkyS3Sync directory under app's Documents directory.  However you can specify a different directory (f.e. if syncing several different buckets and they appear to have files with the same names) using the property of SkyS3SyncManager:

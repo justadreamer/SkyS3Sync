@@ -141,7 +141,6 @@ describe(@"SkyS3ManagerSpec", ^{
         NSURL *originalURL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
         NSURL *syncedURL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
 
-        NSDate *dateOriginal1 = [SkyS3SyncManager modificationDateForURL:originalURL];
         NSString *modifiedContent = @"test1_modified";
         NSString *syncedContent1 = readFile(syncedURL);
         NSString *originalContent = readFile(originalURL);
@@ -151,14 +150,13 @@ describe(@"SkyS3ManagerSpec", ^{
         writeFile(modifiedContent,originalURL);
 
         NSDate *dateOriginal2 = [SkyS3SyncManager modificationDateForURL:originalURL];
-        [[dateOriginal1 should] equal:dateOriginal2];
         
         manager.originalResourcesCopied = NO;
         [manager doSync];//copy the resources again
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
 
         NSDate *dateSynced = [SkyS3SyncManager modificationDateForURL:syncedURL];
-        [[dateSynced should] equal:dateOriginal1];
+        [[dateSynced should] equal:dateOriginal2];
 
         NSString *syncedContent2 = readFile(syncedURL);
         [[syncedContent2 should] equal:modifiedContent];
@@ -230,7 +228,7 @@ describe(@"SkyS3ManagerSpec", ^{
     });
     
     it (@"should update the local resource if Amazon offers a newer resource with a different md5", ^{
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withArguments:@"test1.txt"];
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"];
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         NSURL *test1URL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
@@ -317,7 +315,7 @@ describe(@"SkyS3ManagerSpec", ^{
     });
 
     it (@"should download the resource from Amazon if it did not exist locally", ^{
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withArguments:@"test1.txt"];
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"];
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withArguments:@"test4.txt"];
 
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket-test4" withExtension:@"xml"]

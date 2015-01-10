@@ -126,6 +126,8 @@ describe(@"SkyS3ManagerSpec", ^{
         [[theValue([dateOriginal2 timeIntervalSinceDate:dateOriginal1]) should] beGreaterThan:theValue(0)];
 
         manager.originalResourcesCopied = NO;
+        
+        [[[NSNotificationCenter defaultCenter] should] receive:@selector(postNotificationName:object:) withArguments:SkyS3SyncDidFinishSyncNotification,manager,nil];
         [manager doSync];//copy the resources again
         [[expectFutureValue(theValue(manager.originalResourcesCopied)) shouldEventually] beYes];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
@@ -229,6 +231,7 @@ describe(@"SkyS3ManagerSpec", ^{
     
     it (@"should update the local resource if Amazon offers a newer resource with a different md5", ^{
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"];
+        
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         NSURL *test1URL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
@@ -251,6 +254,7 @@ describe(@"SkyS3ManagerSpec", ^{
 
         [NSThread sleepForTimeInterval:1];//so that the updated resource is 1 second newer
 
+        [[[NSNotificationCenter defaultCenter] should] receive:@selector(postNotificationName:object:) withArguments:SkyS3SyncDidFinishSyncNotification,manager,nil];
         [manager doSync];
         [[[FileHash md5HashOfFileAtPath:[test1URL path]] should] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
         [[expectFutureValue([FileHash md5HashOfFileAtPath:[test1URL path]]) shouldEventually] equal:@"d6df2932f01bdc0485ea502f86d10968"];
@@ -279,6 +283,7 @@ describe(@"SkyS3ManagerSpec", ^{
 
         [NSThread sleepForTimeInterval:1]; //so that in case the resource updates it is 1 second newer
 
+        [[[NSNotificationCenter defaultCenter] should] receive:@selector(postNotificationName:object:) withArguments:SkyS3SyncDidFinishSyncNotification,manager,nil];
         [manager doSync];
         [[[FileHash md5HashOfFileAtPath:[test1URL path]] should] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
         [[expectFutureValue([FileHash md5HashOfFileAtPath:[test1URL path]]) shouldEventually] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
@@ -306,6 +311,7 @@ describe(@"SkyS3ManagerSpec", ^{
         
         [NSThread sleepForTimeInterval:1]; //so that in case the resource updates it is 1 second newer
         
+        [[[NSNotificationCenter defaultCenter] should] receive:@selector(postNotificationName:object:) withArguments:SkyS3SyncDidFinishSyncNotification,manager,nil];
         [manager doSync];
         [[[FileHash md5HashOfFileAtPath:[test1URL path]] should] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
         [[expectFutureValue([FileHash md5HashOfFileAtPath:[test1URL path]]) shouldEventually] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
@@ -341,6 +347,7 @@ describe(@"SkyS3ManagerSpec", ^{
         NSURL *test1URL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
         NSURL *test4URL = [defaultSyncDir URLByAppendingPathComponent:@"test4.txt"];
         
+        [[[NSNotificationCenter defaultCenter] should] receive:@selector(postNotificationName:object:) withArguments:SkyS3SyncDidFinishSyncNotification,manager,nil];
         manager.syncInProgress = YES;
         [manager doSync];
         [[[FileHash md5HashOfFileAtPath:[test1URL path]] should] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];

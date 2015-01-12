@@ -247,9 +247,9 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
         [self.amazonS3Manager getObjectWithPath:resource.name outputStream:stream progress:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
         } success:^(id responseObject) {
             [self copyFrom:tmpURL to:resource.localURL];
-            completedBlock();
             [self.class log:@"did update %@",resource.name];
             [self postDidUpdateNotificationWithResource:resource.name];
+            completedBlock();
         } failure:^(NSError *error) {
             completedBlock();
         }];

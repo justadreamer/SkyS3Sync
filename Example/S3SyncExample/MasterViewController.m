@@ -55,7 +55,11 @@
 
 // In a storyboard-based application, you will often want to do a little preparation before navigation
 - (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
-    DetailViewController *detail = (DetailViewController *)[[segue destinationViewController] topViewController];
+    UIViewController *destination = [segue destinationViewController];
+    DetailViewController *detail = (DetailViewController *)destination;
+    if ([destination isKindOfClass:[UINavigationController class]]) {
+        detail = (DetailViewController *)[(UINavigationController *)destination topViewController];
+    }
     detail.viewModel = [self.viewModel detailViewModelForResourceAtIndex:self.tableView.indexPathForSelectedRow.row];
 }
 

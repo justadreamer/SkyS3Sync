@@ -292,7 +292,7 @@ describe(@"SkyS3ManagerSpec", ^{
         [[date2 should] equal:date1];
     });
     
-    it (@"should not update the local resource if Amazon offers an older resource but with a different md5", ^{
+    it (@"should update the local resource if Amazon offers an older resource but with a different md5", ^{
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         
@@ -309,15 +309,20 @@ describe(@"SkyS3ManagerSpec", ^{
         withHeader(@"Content-Type",@"application/xml").
         withBody(readFile(xmlURL));
         
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/test1.txt").
+        andReturn(200).
+        withHeader(@"Content-Type",@"text/plain").
+        withBody(@"test1_amazon");
+        
         [NSThread sleepForTimeInterval:1]; //so that in case the resource updates it is 1 second newer
         
         [[[NSNotificationCenter defaultCenter] should] receive:@selector(postNotificationName:object:) withArguments:SkyS3SyncDidFinishSyncNotification,manager,nil];
         [manager doSync];
         [[[FileHash md5HashOfFileAtPath:[test1URL path]] should] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
-        [[expectFutureValue([FileHash md5HashOfFileAtPath:[test1URL path]]) shouldEventually] equal:@"5a105e8b9d40e1329780d62ea2265d8a"];
+        [[expectFutureValue([FileHash md5HashOfFileAtPath:[test1URL path]]) shouldEventually] equal:@"d6df2932f01bdc0485ea502f86d10968"];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         NSDate *date2 = [SkyS3SyncManager modificationDateForURL:test1URL];
-        [[date2 should] equal:date1];
+        [[theValue([date2 timeIntervalSinceDate:date1]) should] beGreaterThan:theValue(0)];
     });
 
     it (@"should download the resource from Amazon if it did not exist locally", ^{

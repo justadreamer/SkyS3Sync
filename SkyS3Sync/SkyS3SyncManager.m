@@ -233,9 +233,7 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
                                                                 YES) lastObject];
 
     NSURL *cachesURL = [NSURL fileURLWithPath:cachesPath];
-    remoteResources = [[remoteResources reject:^BOOL(SkyS3ResourceData *resource) {
-        return [resource.lastModifiedDate timeIntervalSinceDate:[self.class modificationDateForURL:resource.localURL]]<0;
-    }] reject:^BOOL(SkyS3ResourceData *resource) {
+    remoteResources = [remoteResources reject:^BOOL(SkyS3ResourceData *resource) {
         return [resource.etag isEqualToString:[self md5ForURL:resource.localURL]];
     }];
 

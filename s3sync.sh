@@ -17,5 +17,6 @@ echo "Syncing dir=$1 into s3 bucket=$2"
 
 #sync the directory to S3
 s3cmd --delete-removed sync $DIR/ s3://$BUCKET $CONFIG
-#get the md5 sums into the temporary manifest
+
+#show the md5 sums
 s3cmd --list-md5 ls s3://$BUCKET $CONFIG

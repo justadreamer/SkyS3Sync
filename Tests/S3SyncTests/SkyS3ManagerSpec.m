@@ -72,16 +72,16 @@ describe(@"SkyS3ManagerSpec", ^{
         andFailWithError([NSError errorWithDomain:@"'This is OK - deliberately done for tests'" code:404 userInfo:@{}]);
     });
     
-    it (@"should create the sync directory at default location", ^{
+    it (@"should create the sync directory at default location", (^{
         [[@(manager.originalResourcesCopied) should] beNo];
         [manager doSync];
         [[@(manager.originalResourcesCopied) should] beYes];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
 
         [[@([[NSFileManager defaultManager] fileExistsAtPath:[defaultSyncDir path]]) should] beYes];
-    });
+    }));
     
-    it (@"should create the sync directory at specified location", ^{
+    it (@"should create the sync directory at specified location", (^{
         NSString *different = @"DifferentSyncDir";
         NSURL *differentSyncDir = [documentsDir URLByAppendingPathComponent:different];
         [[theValue([[NSFileManager defaultManager] fileExistsAtPath:[differentSyncDir path]]) should] beNo];
@@ -96,9 +96,9 @@ describe(@"SkyS3ManagerSpec", ^{
         [[@([[NSFileManager defaultManager] fileExistsAtPath:[differentSyncDir path]]) should] beYes];
 
         delete(differentSyncDir);
-    });
+    }));
     
-    it (@"should copy the resources into the sync directory at specified location", ^{
+    it (@"should copy the resources into the sync directory at specified location", (^{
         NSArray *syncResources = contentsOfDirectory(defaultSyncDir);
         [syncResources shouldBeNil];
 
@@ -109,9 +109,9 @@ describe(@"SkyS3ManagerSpec", ^{
         [syncResources shouldNotBeNil];
         NSArray *originalResources = contentsOfDirectory(originalResourcesDir);
         [[syncResources should] haveCountOf:[originalResources count]];
-    });
+    }));
     
-    it (@"should not copy the same resources if the sync resources content is the same as original, even if original ones are newer", ^{
+    it (@"should not copy the same resources if the sync resources content is the same as original, even if original ones are newer", (^{
         [manager doSync];//copy the resources ones
         [[expectFutureValue(theValue(manager.originalResourcesCopied)) shouldEventually] beYes];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
@@ -135,9 +135,9 @@ describe(@"SkyS3ManagerSpec", ^{
         NSDate *dateSynced = [SkyS3SyncManager modificationDateForURL:[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
 
         [[dateOriginal1 should] equal:dateSynced];
-    });
+    }));
     
-    it (@"should copy the resources if the content has been modified and the modification date is either same or newer", ^{
+    it (@"should copy the resources if the content has been modified and the modification date is either same or newer", (^{
         [manager doSync];
 
         NSURL *originalURL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
@@ -162,9 +162,9 @@ describe(@"SkyS3ManagerSpec", ^{
 
         NSString *syncedContent2 = readFile(syncedURL);
         [[syncedContent2 should] equal:modifiedContent];
-    });
+    }));
     
-    it (@"should not copy the resources if the content differs, but the modification date of the synced is newer than original", ^{
+    it (@"should not copy the resources if the content differs, but the modification date of the synced is newer than original", (^{
         [manager doSync];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         NSURL *originalURL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
@@ -190,9 +190,9 @@ describe(@"SkyS3ManagerSpec", ^{
 
         [[theValue([dateSynced2 timeIntervalSinceDate:dateSynced1]) should] beGreaterThan:theValue(0)];
         [[syncedContent2 should] equal:modifiedContent];
-    });
+    }));
     
-    it (@"should copy the file from resources if it did not exist before in the sync directory", ^{
+    it (@"should copy the file from resources if it did not exist before in the sync directory", (^{
         [manager doSync];
         NSString *test4 = @"test4.txt";
         NSURL *test4URLOriginal = [originalResourcesDir URLByAppendingPathComponent:test4];
@@ -207,9 +207,9 @@ describe(@"SkyS3ManagerSpec", ^{
 
         delete(test4URLOriginal);
         delete(test4URLSync);
-    });
+    }));
     
-    it (@"should get the remote resources from the Amazon S3 List Bucket xml", ^{
+    it (@"should get the remote resources from the Amazon S3 List Bucket xml", (^{
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"]
         ;
         NSError *error = nil;
@@ -227,9 +227,9 @@ describe(@"SkyS3ManagerSpec", ^{
         [[resource.lastModifiedDate should] beNonNil];
         [[theValue([resource.lastModifiedDate timeIntervalSinceNow]) should] beGreaterThan:theValue(0)];
         [[resource.name should] equal:@"test1.txt"];
-    });
+    }));
     
-    it (@"should update the local resource if Amazon offers a newer resource with a different md5", ^{
+    it (@"should update the local resource if Amazon offers a newer resource with a different md5", (^{
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"];
         
         [manager doSync]; //to copy test1
@@ -262,9 +262,9 @@ describe(@"SkyS3ManagerSpec", ^{
 
         NSDate *date2 = [SkyS3SyncManager modificationDateForURL:test1URL];
         [[theValue([date2 timeIntervalSinceDate:date1]) should] beGreaterThan:theValue(0)];
-    });
+    }));
     
-    it (@"should not update the local resource if Amazon offers a newer resource but with the same md5", ^{
+    it (@"should not update the local resource if Amazon offers a newer resource but with the same md5", (^{
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
 
@@ -290,9 +290,9 @@ describe(@"SkyS3ManagerSpec", ^{
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         NSDate *date2 = [SkyS3SyncManager modificationDateForURL:test1URL];
         [[date2 should] equal:date1];
-    });
+    }));
     
-    it (@"should update the local resource if Amazon offers an older resource but with a different md5", ^{
+    it (@"should update the local resource if Amazon offers an older resource but with a different md5", (^{
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         
@@ -323,9 +323,9 @@ describe(@"SkyS3ManagerSpec", ^{
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         NSDate *date2 = [SkyS3SyncManager modificationDateForURL:test1URL];
         [[theValue([date2 timeIntervalSinceDate:date1]) should] beGreaterThan:theValue(0)];
-    });
+    }));
 
-    it (@"should download the resource from Amazon if it did not exist locally", ^{
+    it (@"should download the resource from Amazon if it did not exist locally", (^{
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"];
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withArguments:@"test4.txt"];
 
@@ -368,7 +368,21 @@ describe(@"SkyS3ManagerSpec", ^{
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         
         delete(test4URL);
-    });
+    }));
+    
+    it(@"should not sync with Amazon if remoteSyncEnabled is set to NO", (^{
+        [[LSNocilla sharedInstance] clearStubs];
+        [[[LSNocilla sharedInstance] shouldNot] receive:@selector(responseForRequest:)];
+        manager.remoteSyncEnabled = NO;
+        [manager doSync]; //to copy test1
+        [[theValue(manager.syncInProgress) should] beYes];
+        [NSThread sleepForTimeInterval:1]; //so that in case the resource updates it is 1 second newer
+
+        [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
+        NSURL *test1URL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
+        NSDate *date1 = [SkyS3SyncManager modificationDateForURL:test1URL];
+        [[date1 should] beNonNil];
+    }));
 });
 
 SPEC_END

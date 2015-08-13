@@ -77,6 +77,7 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
         self.S3SecretKey = secretKey;
         self.S3BucketName = bucketName;
         self.originalResourcesDirectory = originalResourcesDirectory;
+        self.remoteSyncEnabled = YES;
     }
     return self;
 }
@@ -162,7 +163,11 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
     NSAssert(self.originalResourcesDirectory, @"originalResourcesDirectory not set");
 
     [self doOriginalResourcesCopying];
-    [self doAmazonS3Sync];
+    if (self.remoteSyncEnabled) {
+        [self doAmazonS3Sync];
+    } else {
+        [self finishSync];
+    }
 }
 
 - (void) doOriginalResourcesCopying {

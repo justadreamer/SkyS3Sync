@@ -137,6 +137,7 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
         _amazonS3Manager = [[AFAmazonS3Manager alloc] initWithAccessKeyID:self.S3AccessKey secret:self.S3SecretKey];
         _amazonS3Manager.completionQueue = self.dispatchQueue;
         _amazonS3Manager.requestSerializer.bucket = self.S3BucketName;
+        _amazonS3Manager.requestSerializer.cachePolicy = NSURLRequestReloadIgnoringCacheData;
     }
     return _amazonS3Manager;
 }

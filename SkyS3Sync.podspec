@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "SkyS3Sync"
-  s.version          = "0.6"
+  s.version          = "0.7"
   s.summary          = "A utility for downsyncing remotely updated versions of local files from S3.  Allows you to remotely modify some application data and make it available to your app without the need to resubmit the app to AppStore or creating a specialized backend and API the app has to talk to"
 
   s.license          = { :type => "MIT", :file => "LICENSE.txt" }

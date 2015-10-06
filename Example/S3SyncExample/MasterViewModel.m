@@ -16,9 +16,11 @@
 @end
 
 @implementation MasterViewModel
+
 - (instancetype) init {
     if (self = [super init]) {
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(resourcesDidUpdate:) name:SkyS3SyncDidUpdateResourceNotification object:[AD s3SyncManager]];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(resourcesDidUpdate:) name:SkyS3SyncDidUpdateResourceNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(resourcesDidUpdate:) name:SkyS3SyncDidCopyOriginalResourceNotification object:nil];
         [self fillResources];
     }
     return self;

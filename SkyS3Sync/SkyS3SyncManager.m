@@ -20,6 +20,7 @@
 NSString * const SkyS3SyncDidFinishSyncNotification = @"SkyS3SyncDidFinishSyncNotification";
 NSString * const SkyS3SyncDidRemoveResourceNotification = @"SkyS3SyncDidRemoveResourceNotification";
 NSString * const SkyS3SyncDidUpdateResourceNotification = @"SkyS3SyncDidUpdateResourceNotification";
+NSString * const SkyS3SyncDidCopyOriginalResourceNotification = @"SkyS3SyncDidCopyOriginalResourceNotification";
 NSString * const SkyS3ResourceFileName = @"SkyS3ResourceFileName";
 NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
 
@@ -202,8 +203,14 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
         return NO;
     }] each:^(NSURL *srcURL) { //then each of the picked resources gets copied
         NSURL *dstURL = [self dstURLForSrcURL:srcURL];
+        BOOL fileExistedAtPath = [[NSFileManager defaultManager] fileExistsAtPath:[dstURL path]];
+        NSString* resourceName = [dstURL lastPathComponent];
         [self copyFrom:srcURL to:dstURL];
-        [self postDidUpdateNotificationWithResource:[dstURL lastPathComponent]];
+        if (fileExistedAtPath) {
+            [self postDidUpdateNotificationWithResource:resourceName];
+        } else {
+            [self postDidCopyOriginalNotificationWithResource:resourceName];
+        }
     }];
     
     self.originalResourcesCopied = YES;
@@ -281,6 +288,10 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
 
 - (void) postDidRemoveNotificationWithResource:(NSString *)resourceFileName {
     [self postNotificationName:SkyS3SyncDidRemoveResourceNotification withResource:resourceFileName];
+}
+
+- (void) postDidCopyOriginalNotificationWithResource:(NSString *)resourceFileName {
+    [self postNotificationName:SkyS3SyncDidCopyOriginalResourceNotification withResource:resourceFileName];
 }
 
 - (void) postDidUpdateNotificationWithResource:(NSString *)resourceFileName {

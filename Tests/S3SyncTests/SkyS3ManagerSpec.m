@@ -28,6 +28,7 @@ void(*hit)(NSString *,void(^)(void)) = it;
 - (NSArray *) remoteResourcesFromBucketListXML:(ONOXMLDocument *)document;
 - (void) postDidRemoveNotificationWithResource:(NSString *)resourceFileName;
 - (void) postDidUpdateNotificationWithResource:(NSString *)resourceFileName;
+- (void) postDidCopyOriginalNotificationWithResource:(NSString *)resource;
 @end
 
 SPEC_BEGIN(SkyS3SyncManagerSpec)
@@ -119,7 +120,7 @@ describe(@"SkyS3ManagerSpec", ^{
 
         NSURL *test1URL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
         NSDate *dateOriginal1 = [SkyS3SyncManager modificationDateForURL:test1URL];
-        [NSThread sleepForTimeInterval:1]; //needed sot that the dates are different
+        [NSThread sleepForTimeInterval:1]; //needed spot that the dates are different
 
         writeFile(@"test1",test1URL);
         NSDate *dateOriginal2 = [SkyS3SyncManager modificationDateForURL:test1URL];
@@ -231,7 +232,8 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should update the local resource if Amazon offers a newer resource with a different md5", (^{
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"];
+        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResource:) withCount:1 arguments:@"test1.txt"];
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test1.txt"];
         
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
@@ -327,7 +329,8 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
 
     it (@"should download the resource from Amazon if it did not exist locally", (^{
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"];
+        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResource:) withCount:1 arguments:@"test1.txt"];
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test1.txt"];
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withArguments:@"test4.txt"];
 
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket-test4" withExtension:@"xml"]
@@ -384,14 +387,16 @@ describe(@"SkyS3ManagerSpec", ^{
         NSDate *date1 = [SkyS3SyncManager modificationDateForURL:test1URL];
         [[date1 should] beNonNil];
     }));
-    
+     
     it (@"should remove legacy local resources if it was removed from Amazon", (^{
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
-                                                               withCount:2
-                                                               arguments:SkyS3SyncDidUpdateResourceNotification,manager,@{SkyS3ResourceFileName:@"test1.txt",
+                                                           withArguments:SkyS3SyncDidCopyOriginalResourceNotification,manager,@{SkyS3ResourceFileName:@"test1.txt",
+                                                                                                                                SkyS3ResourceURL:[NSURL URLWithString:@"test1.txt" relativeToURL:defaultSyncDir]},nil];
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
+                                                           withArguments:SkyS3SyncDidUpdateResourceNotification,manager,@{SkyS3ResourceFileName:@"test1.txt",
                                                                                                                           SkyS3ResourceURL:[NSURL URLWithString:@"test1.txt" relativeToURL:defaultSyncDir]},nil];
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test2.txt"]; // update only from original
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test3.txt"]; // update only from original
+        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResource:) withCount:1 arguments:@"test2.txt"]; // update only from original
+        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResource:) withCount:1 arguments:@"test3.txt"]; // update only from original
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
                                                                withArguments:SkyS3SyncDidRemoveResourceNotification,manager,@{SkyS3ResourceFileName:@"test2.txt"},nil];
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
@@ -401,10 +406,9 @@ describe(@"SkyS3ManagerSpec", ^{
         NSArray *syncResources = contentsOfDirectory(defaultSyncDir);
         [[syncResources should] haveCountOf:3];
         
-        /*stubbing requests:
-         whould be great to have response delay for this stubs,
-         so we could also test updates from original notifications with their userInfo dicts for deleted resources ('test2.txt' & 'test3.txt') the same way as we do for 'test1.txt'
-         */
+        // stubbing requests:
+        // whould be great to have response delay for this stubs,
+        // so we could also test updates from original notifications with their userInfo dicts for deleted resources ('test2.txt' & 'test3.txt') the same way as we do for 'test1.txt'
         [[LSNocilla sharedInstance] clearStubs];
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"];
         stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
@@ -429,6 +433,17 @@ describe(@"SkyS3ManagerSpec", ^{
         [[test2URL shouldNotAfterWait] beNil];
         NSURL* test3URL = [manager URLForResource:@"test3" withExtension:@"txt"];
         [[test3URL shouldNotAfterWait] beNil];
+    }));
+
+    it(@"should copy original resources just once", (^{
+        NSDictionary* userInfo = @{SkyS3ResourceFileName:@"test1.txt", SkyS3ResourceURL:[NSURL URLWithString:@"test1.txt" relativeToURL:defaultSyncDir]};
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidCopyOriginalResourceNotification,manager,userInfo,nil];
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidUpdateResourceNotification,manager,userInfo,nil];
+        [manager doSync];//copy the resources ones
+        [NSThread sleepForTimeInterval:1];//needed spot that the dates are different
+        writeFile(@"test1 updated",[originalResourcesDir URLByAppendingPathComponent:@"test1.txt"]);
+        manager.originalResourcesCopied = NO;
+        [manager doSync];//try to copy resources again, it whould update already copied resources
     }));
 });
 

@@ -8,6 +8,16 @@
 
 #import <Foundation/Foundation.h>
 /**
+ *  Posted when a particular original resource is first time copied to sync directory with the userInfo containing keys:
+ *
+ *  SkyS3ResourceFileName - the filename (with extension) of the resource that has
+ *  been copied
+ *
+ *  SkyS3ResourceURL - the local file URL of the resource that has just been copied
+ */
+extern NSString * const SkyS3SyncDidCopyOriginalResourceNotification;
+
+/**
  *  Posted when a particular resource is removed with the userInfo containing keys:
  *
  *  SkyS3ResourceFileName - the filename (with extension) of the resource that has

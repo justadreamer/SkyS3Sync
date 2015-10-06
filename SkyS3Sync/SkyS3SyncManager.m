@@ -234,10 +234,20 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
         };
     };
 
-    NSString* cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory,
-                                                                NSUserDomainMask,
-                                                                YES) lastObject];
-
+    // delete local files that are absent on the remote host
+    NSArray* remoteFileNames = [remoteResources map:^id(SkyS3ResourceData *resource) {
+        return resource.name;
+    }];
+    for (NSString *localFileName in [[NSFileManager defaultManager] enumeratorAtPath:self.syncDirectoryURL.path]) {
+        if (![remoteFileNames containsObject:localFileName]) {
+            NSError* error = nil;
+            if (![[NSFileManager defaultManager] removeItemAtPath:[self.syncDirectoryURL.path stringByAppendingPathComponent:localFileName] error:&error]) {
+                [self.class log:@"fail to remove local legacy resource %@ error: %@", localFileName, error];
+            }
+        }
+    }
+    
+    NSString* cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) lastObject];
     NSURL *cachesURL = [NSURL fileURLWithPath:cachesPath];
     remoteResources = [remoteResources reject:^BOOL(SkyS3ResourceData *resource) {
         return [resource.etag isEqualToString:[self md5ForURL:resource.localURL]];

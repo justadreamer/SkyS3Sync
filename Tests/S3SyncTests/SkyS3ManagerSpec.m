@@ -383,6 +383,42 @@ describe(@"SkyS3ManagerSpec", ^{
         NSDate *date1 = [SkyS3SyncManager modificationDateForURL:test1URL];
         [[date1 should] beNonNil];
     }));
+    
+    it (@"should remove legacy local resources if it was removed from Amazon", (^{
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"]; // update from original and remote
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test2.txt"]; // update only from original
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test3.txt"]; // update only from original
+        [manager doSync];
+        
+        NSArray *syncResources = contentsOfDirectory(defaultSyncDir);
+        [[syncResources should] haveCountOf:3];
+        
+        //stubbing requests:
+        [[LSNocilla sharedInstance] clearStubs];
+        NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"];
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
+        andReturn(200).
+        withHeader(@"Content-Type",@"application/xml").
+        withBody(readFile(xmlURL));
+        
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/test1.txt").
+        andReturn(200).
+        withHeader(@"Content-Type",@"text/plain").
+        withBody(@"test1_amazon");
+        
+        [NSThread sleepForTimeInterval:1];//so that the updated resource is 1 second newer
+        
+        syncResources = contentsOfDirectory(defaultSyncDir);
+        [[syncResources should] haveCountOf:1];
+        NSString* recoucePath = [(NSURL*)[syncResources firstObject] path];
+        [[recoucePath should] endWithString:@"test1.txt"];
+        
+        // this files can still be accessed from the original resource directory
+        NSURL* test2URL = [manager URLForResource:@"test2" withExtension:@"txt"];
+        [[test2URL shouldNotAfterWait] beNil];
+        NSURL* test3URL = [manager URLForResource:@"test3" withExtension:@"txt"];
+        [[test3URL shouldNotAfterWait] beNil];
+    }));
 });
 
 SPEC_END

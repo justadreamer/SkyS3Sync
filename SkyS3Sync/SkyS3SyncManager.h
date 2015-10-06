@@ -8,6 +8,16 @@
 
 #import <Foundation/Foundation.h>
 /**
+ *  Posted when a particular resource is removed with the userInfo containing keys:
+ *
+ *  SkyS3ResourceFileName - the filename (with extension) of the resource that has
+ *  been removed
+ *
+ *  SkyS3ResourceURL - the local file URL of the resource that has just been removed
+ */
+extern NSString * const SkyS3SyncDidRemoveResourceNotification;
+
+/**
  *  Posted when a particular resource is updated with the userInfo containing keys:
  *
  *  SkyS3ResourceFileName - the filename (with extension) of the resource that has

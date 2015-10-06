@@ -26,7 +26,8 @@ void(*hit)(NSString *,void(^)(void)) = it;
 - (void) doSync;
 + (NSDate *) modificationDateForURL:(NSURL *)URL;
 - (NSArray *) remoteResourcesFromBucketListXML:(ONOXMLDocument *)document;
-- (void) postDidUpdateNotificationWithResource:(NSString *)resource;
+- (void) postDidRemoveNotificationWithResource:(NSString *)resourceFileName;
+- (void) postDidUpdateNotificationWithResource:(NSString *)resourceFileName;
 @end
 
 SPEC_BEGIN(SkyS3SyncManagerSpec)
@@ -387,7 +388,9 @@ describe(@"SkyS3ManagerSpec", ^{
     it (@"should remove legacy local resources if it was removed from Amazon", (^{
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"]; // update from original and remote
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test2.txt"]; // update only from original
+        [[manager should] receive:@selector(postDidRemoveNotificationWithResource:) withCount:1 arguments:@"test2.txt"]; // remove from original
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test3.txt"]; // update only from original
+        [[manager should] receive:@selector(postDidRemoveNotificationWithResource:) withCount:1 arguments:@"test3.txt"]; // remove from original
         [manager doSync];
         
         NSArray *syncResources = contentsOfDirectory(defaultSyncDir);

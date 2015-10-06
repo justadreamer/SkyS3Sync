@@ -18,6 +18,7 @@
 #import "SkyS3ResourceData.h"
 
 NSString * const SkyS3SyncDidFinishSyncNotification = @"SkyS3SyncDidFinishSyncNotification";
+NSString * const SkyS3SyncDidRemoveResourceNotification = @"SkyS3SyncDidRemoveResource";
 NSString * const SkyS3SyncDidUpdateResourceNotification = @"SkyS3SyncDidUpdateResource";
 NSString * const SkyS3ResourceFileName = @"SkyS3ResourceFileName";
 NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
@@ -235,13 +236,15 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
     };
 
     // delete local files that are absent on the remote host
-    NSArray* remoteFileNames = [remoteResources map:^id(SkyS3ResourceData *resource) {
+    NSArray* remoteResourcesNames = [remoteResources map:^id(SkyS3ResourceData* resource) {
         return resource.name;
     }];
     for (NSString *localFileName in [[NSFileManager defaultManager] enumeratorAtPath:self.syncDirectoryURL.path]) {
-        if (![remoteFileNames containsObject:localFileName]) {
+        if (![remoteResourcesNames containsObject:localFileName]) {
             NSError* error = nil;
-            if (![[NSFileManager defaultManager] removeItemAtPath:[self.syncDirectoryURL.path stringByAppendingPathComponent:localFileName] error:&error]) {
+            if ([[NSFileManager defaultManager] removeItemAtPath:[self.syncDirectoryURL.path stringByAppendingPathComponent:localFileName] error:&error]) {
+                [self postDidRemoveNotificationWithResource:localFileName];
+            } else {
                 [self.class log:@"fail to remove local legacy resource %@ error: %@", localFileName, error];
             }
         }
@@ -274,14 +277,24 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
     }
 }
 
+#pragma mark - Notifications
+
+- (void) postDidRemoveNotificationWithResource:(NSString *)resourceFileName {
+    [self postNotificationName:SkyS3SyncDidRemoveResourceNotification withResource:resourceFileName];
+}
+
 - (void) postDidUpdateNotificationWithResource:(NSString *)resourceFileName {
+    [self postNotificationName:SkyS3SyncDidUpdateResourceNotification withResource:resourceFileName];
+}
+
+- (void) postNotificationName:(NSString*)notificationName withResource:(NSString*)resourceFileName {
     dispatch_async(dispatch_get_main_queue(), ^{
-        [[NSNotificationCenter defaultCenter] postNotificationName:SkyS3SyncDidUpdateResourceNotification
-                                                            object:self
-                                                          userInfo:@{
-                                                                     SkyS3ResourceFileName:resourceFileName,
-                                                                     SkyS3ResourceURL:[self URLForResourceWithFileName:resourceFileName]
-                                                                     }];
+        NSMutableDictionary* userInfo = [NSMutableDictionary dictionaryWithDictionary:@{SkyS3ResourceFileName:resourceFileName}];
+        NSURL* resourceURL = [self URLForResourceWithFileName:resourceFileName];
+        if (resourceURL) {
+            userInfo[SkyS3ResourceURL] = resourceURL;
+        }
+        [[NSNotificationCenter defaultCenter] postNotificationName:notificationName object:self userInfo:userInfo];
     });
 }
 

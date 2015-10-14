@@ -13,7 +13,6 @@
  *  SkyS3ResourceFileName - the filename (with extension) of the resource that has
  *  been removed
  *
- *  SkyS3ResourceURL - the local file URL of the resource that has just been removed
  */
 extern NSString * const SkyS3SyncDidRemoveResourceNotification;
 

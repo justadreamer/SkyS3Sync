@@ -386,17 +386,25 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should remove legacy local resources if it was removed from Amazon", (^{
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:2 arguments:@"test1.txt"]; // update from original and remote
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
+                                                               withCount:2
+                                                               arguments:SkyS3SyncDidUpdateResourceNotification,manager,@{SkyS3ResourceFileName:@"test1.txt",
+                                                                                                                          SkyS3ResourceURL:[NSURL URLWithString:@"test1.txt" relativeToURL:defaultSyncDir]},nil];
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test2.txt"]; // update only from original
-        [[manager should] receive:@selector(postDidRemoveNotificationWithResource:) withCount:1 arguments:@"test2.txt"]; // remove from original
         [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test3.txt"]; // update only from original
-        [[manager should] receive:@selector(postDidRemoveNotificationWithResource:) withCount:1 arguments:@"test3.txt"]; // remove from original
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
+                                                               withArguments:SkyS3SyncDidRemoveResourceNotification,manager,@{SkyS3ResourceFileName:@"test2.txt"},nil];
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
+                                                               withArguments:SkyS3SyncDidRemoveResourceNotification,manager,@{SkyS3ResourceFileName:@"test3.txt"},nil];
         [manager doSync];
         
         NSArray *syncResources = contentsOfDirectory(defaultSyncDir);
         [[syncResources should] haveCountOf:3];
         
-        //stubbing requests:
+        /*stubbing requests:
+         whould be great to have response delay for this stubs,
+         so we could also test updates from original notifications with their userInfo dicts for deleted resources ('test2.txt' & 'test3.txt') the same way as we do for 'test1.txt'
+         */
         [[LSNocilla sharedInstance] clearStubs];
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"];
         stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").

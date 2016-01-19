@@ -14,7 +14,7 @@
 #import <Ono/Ono.h>
 #import <libextobjc/extobjc.h>
 #import <FileMD5Hash/FileHash.h>
-
+#import "SkyS3Directory.h"
 #import "SkyS3ResourceData.h"
 
 NSString * const SkyS3SyncDidFinishSyncNotification = @"SkyS3SyncDidFinishSyncNotification";
@@ -65,7 +65,7 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
  *  with this property, however make sure this directory exists.
  */
 @property (nonatomic,readwrite,strong) NSURL *syncDirectoryURL;
-
+@property (nonatomic,strong) SkyS3Directory *actualSyncDirectory;
 @property (nonatomic,strong) dispatch_queue_t dispatchQueue;
 @end
 
@@ -92,16 +92,16 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
 }
 
 - (NSURL *)URLForResourceWithFileName:(NSString *)fileName {
-    NSURL *URL = [NSURL URLWithString:fileName relativeToURL:self.syncDirectoryURL];
-    if ([[NSFileManager defaultManager] fileExistsAtPath:[URL path]]) {
+    NSURL *URL = [self.actualSyncDirectory URLForResourceWithFileName:fileName];
+    if (URL) {
         return URL;
     }
-    
+
     URL = [NSURL URLWithString:fileName relativeToURL:self.originalResourcesDirectory];
     if ([[NSFileManager defaultManager] fileExistsAtPath:[URL path]]) {
         return URL;
     }
-    
+
     return nil;
 }
 
@@ -125,6 +125,17 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
         }
     }
     return _syncDirectoryURL;
+}
+
+- (SkyS3Directory *) actualSyncDirectory {
+    if (!_actualSyncDirectory) {
+        _actualSyncDirectory = [[SkyS3Directory alloc] initWithDirectoryURL:self.syncDirectoryURL];
+    }
+    return _actualSyncDirectory;
+}
+
+- (NSObject<SkyS3ResourceURLProvider> *)syncDirectory {
+    return self.actualSyncDirectory;
 }
 
 - (NSString *)syncDirectoryName {

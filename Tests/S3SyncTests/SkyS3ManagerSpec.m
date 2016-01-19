@@ -356,6 +356,9 @@ describe(@"SkyS3ManagerSpec", ^{
         NSURL *test1URL = [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"];
         NSURL *test4URL = [defaultSyncDir URLByAppendingPathComponent:@"test4.txt"];
         
+        NSURL *test1SyncURL = [[manager syncDirectory] URLForResource:@"test1" withExtension:@"txt"];
+        [[test1SyncURL should] beNil];
+        
         [[[NSNotificationCenter defaultCenter] should] receive:@selector(postNotificationName:object:) withArguments:SkyS3SyncDidFinishSyncNotification,manager,nil];
         manager.syncInProgress = YES;
         [manager doSync];
@@ -371,6 +374,8 @@ describe(@"SkyS3ManagerSpec", ^{
         [[expectFutureValue([FileHash md5HashOfFileAtPath:[test4URL path]]) shouldEventually] equal:@"919e96498e0dcc4eba488ee97cdd753b"];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         
+        test1SyncURL = [[manager syncDirectory] URLForResource:@"test1" withExtension:@"txt"];
+        [[test1SyncURL should] beNonNil];
         delete(test4URL);
     }));
     
@@ -433,6 +438,12 @@ describe(@"SkyS3ManagerSpec", ^{
         [[test2URL shouldNotAfterWait] beNil];
         NSURL* test3URL = [manager URLForResource:@"test3" withExtension:@"txt"];
         [[test3URL shouldNotAfterWait] beNil];
+        
+        //but should not be present in the syncDirectory
+        test2URL = [[manager syncDirectory] URLForResource:@"test2" withExtension:@"txt"];
+        [[test2URL shouldAfterWait] beNil];
+        test3URL = [[manager syncDirectory] URLForResource:@"test3" withExtension:@"txt"];
+        [[test3URL shouldAfterWait] beNil];
     }));
 
     it(@"should copy original resources just once", (^{

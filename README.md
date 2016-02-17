@@ -62,8 +62,7 @@ AppDelegate.m:
 
 Then in code you can call:
 
-```objective-c
-
+```objective-c  
 	#include "AppDelegate.h"
 	
 	//...
@@ -71,6 +70,21 @@ Then in code you can call:
 	//or:
 	NSURL *URL = [AD.s3Sync URLForResource:@"<#filename#>" withExtension:@"<#extension#>"];
 ```
+
+##Notifications
+
+To be able to react to changes when some resource has been updated and downsynced - you can listen to `SkyS3SyncDidUpdateResourceNotification` notification.  The `userInfo` dictionary will contain:`SkyS3ResourceFileName` and `SkyS3ResourceURL` keys which you can use to make sure that the resource in question has been updated - and then re-read its contents and update the UI correspondingly.
+
+There are other notifications documented in `SkyS3SyncManager.h` - they can be used to react to differentiate other events, such as:
+
+```
+SkyS3SyncDidCopyOriginalResourceNotification
+SkyS3SyncDidRemoveResourceNotification
+SkyS3SyncDidUpdateResourceNotification
+SkyS3SyncDidFinishSyncNotification
+```
+The last notification is sent when S3SyncManager completed syncing all of the managed resources - so either all of them are up to date, or a network error has occurred, which is not exposed as of right now, since we consider that we have the local default version of each resource provided on initialization.
+
 
 ##Directories
 By default SkyS3SyncManager creates SkyS3Sync directory under app's Documents directory.  However you can specify a different directory (f.e. if syncing several different buckets and they appear to have files with the same names) using the property of SkyS3SyncManager:

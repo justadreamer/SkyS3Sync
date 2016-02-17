@@ -1,8 +1,7 @@
+SkyS3SyncManager
+================
 
-#SkyS3SyncManager
-
-
-A simple resource manager that allows to remotely update app's resources via Amazon S3.  Basically the manager hosts a local mirror of the Amazon S3 bucket.
+A simple resource manager which downsyncs a full mirror of a remote Amazon S3 bucket.  This allows to remotely update app's resources via Amazon S3.  Full mirror means that if some resource changes at Amazon S3 - it is considered to be more relevant than the local copy and it is downloaded, also if some resource is added or deleted on Amazon - it is added or deleted correspondingly in the local mirror.
 
 ##Cocoapod
 It is planned to publish the spec to the main Specs repo in the near future, however for now please use:
@@ -82,15 +81,16 @@ By default SkyS3SyncManager creates SkyS3Sync directory under app's Documents di
 ```
 
 ##Syncing strategy
-The local file under sync directory is updated (fetched from Amazon or overwritten by a newer version provided under app's resource bundle) only in case the remote file is:
-a) newer than the local version (by file's modification time)
-b) md5 of the remote file is different than of the local file (i.e. the remote file has a different content)
+The local file under sync directory is updated (fetched from Amazon or overwritten by a newer version provided under app's resource bundle) only in case the remote file has a different md5 than the local file (the remote file has a different content).
 
-In this case the newer version is downloaded and the local older version is overwritten.
+Addition and deletion are correspondingly mirrored into the local sync directory.
 
-There is no delete strategy currently implemented.  That is a TODO.  
+##SkyS3ResourceURLProvider API
+There is a single API for now, which allows to substitute the SkyS3SyncManager with an NSBundle if needed:
+    
+    - (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext;
 
-If the local version of the file does not exist under sync directory, and there is a remote version - it is downloaded and saved under the sync directory.
+the difference of this API from NSBundle's is that it returns nil if resource does not actually exist.  The check for existance is an unexpected behavior, but that's how we use it in our projects, might to change in the future, as we introduce some cleaner APIs.
 
 
 ##Uploading resources to Amazon

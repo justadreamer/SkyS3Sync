@@ -71,6 +71,12 @@ Then in code you can call:
 	NSURL *URL = [AD.s3Sync URLForResource:@"<#filename#>" withExtension:@"<#extension#>"];
 ```
 
+Note if the resource is not present in the sync-directory (mirroring the bucket) - this call will **fallback** to the local resource version.  In order to always get the resource from the mirror you should use this API:
+
+```objective-c
+[[AD.s3Sync syncDirectory] URLForResource:withExtension:]
+```
+
 ##Notifications
 
 To be able to react to changes when some resource has been updated and downsynced - you can listen to `SkyS3SyncDidUpdateResourceNotification` notification.  The `userInfo` dictionary will contain:`SkyS3ResourceFileName` and `SkyS3ResourceURL` keys which you can use to make sure that the resource in question has been updated - and then re-read its contents and update the UI correspondingly.

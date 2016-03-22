@@ -411,12 +411,14 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
 - (void) copyFrom:(NSURL *)srcURL to:(NSURL *)dstURL {
     NSError *error = nil;
     if ([[NSFileManager defaultManager] fileExistsAtPath:[dstURL path]]) {
-        if (![[NSFileManager defaultManager] removeItemAtURL:dstURL error:&error]) {
-            [self.class log:@"Failed to remove existing file before copying: %@ to %@ error: %@",srcURL,dstURL,error];
+        NSURL *resultingURL = nil;
+        if (![[NSFileManager defaultManager] replaceItemAtURL:dstURL withItemAtURL:srcURL backupItemName:nil options:NULL resultingItemURL:&resultingURL error:&error]) {
+            [self.class log:@"Failed to replace: %@ with %@ error: %@",dstURL,srcURL,error];
         }
-    }
-    if (![[NSFileManager defaultManager] copyItemAtURL:srcURL toURL:dstURL error:&error]) {
-        [self.class log:@"Failed to copy: %@ to %@ error: %@",srcURL,dstURL,error];
+    } else {
+        if (![[NSFileManager defaultManager] copyItemAtURL:srcURL toURL:dstURL error:&error]) {
+            [self.class log:@"Failed to copy: %@ to %@ error: %@",srcURL,dstURL,error];
+        }
     }
 }
 

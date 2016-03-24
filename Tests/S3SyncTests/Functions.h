@@ -9,6 +9,8 @@
 #ifndef S3SyncTests_Functions_h
 #define S3SyncTests_Functions_h
 
+void createDir(NSURL *);
+
 void delete(NSURL *);
 
 void writeFile(NSString *, NSURL *);

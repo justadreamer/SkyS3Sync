@@ -26,9 +26,9 @@ void(*hit)(NSString *,void(^)(void)) = it;
 - (void) doSync;
 + (NSDate *) modificationDateForURL:(NSURL *)URL;
 - (NSArray *) remoteResourcesFromBucketListXML:(ONOXMLDocument *)document;
-- (void) postDidRemoveNotificationWithResource:(NSString *)resourceFileName;
-- (void) postDidUpdateNotificationWithResource:(NSString *)resourceFileName;
-- (void) postDidCopyOriginalNotificationWithResource:(NSString *)resource;
+- (void) postDidRemoveNotificationWithResourceFileName:(NSString *)resourceFileName andURL:(NSURL *)resourceURL;
+- (void) postDidUpdateNotificationWithResourceFileName:(NSString *)resourceFileName  andURL:(NSURL *)resourceURL;
+- (void) postDidCopyOriginalNotificationWithResourceFileName:(NSString *)resource andURL:(NSURL *)resourceURL;
 @end
 
 SPEC_BEGIN(SkyS3SyncManagerSpec)
@@ -61,10 +61,7 @@ describe(@"SkyS3ManagerSpec", ^{
         delete(defaultSyncDir);
         delete(originalResourcesDir);
 
-        NSError *error = nil;
-        if (![[NSFileManager defaultManager] createDirectoryAtPath:[originalResourcesDir path] withIntermediateDirectories:YES attributes:nil error:&error]) {
-            fail(@"failed to create directory: %@, error: %@",originalResourcesDir, error);
-        }
+        createDir(originalResourcesDir);
 
         writeFile(@"test1",[originalResourcesDir URLByAppendingPathComponent:@"test1.txt"]);
         writeFile(@"test2",[originalResourcesDir URLByAppendingPathComponent:@"test2.txt"]);
@@ -75,12 +72,15 @@ describe(@"SkyS3ManagerSpec", ^{
     });
     
     it (@"should create the sync directory at default location", (^{
-        [[@(manager.originalResourcesCopied) should] beNo];
-        [manager doSync];
-        [[@(manager.originalResourcesCopied) should] beYes];
+        [[theValue(manager.originalResourcesCopied) should] beNo];
+        
+        [manager sync];
+        [NSThread sleepForTimeInterval:1];
+
+        [[theValue(manager.originalResourcesCopied) shouldEventually] beYes];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
 
-        [[@([[NSFileManager defaultManager] fileExistsAtPath:[defaultSyncDir path]]) should] beYes];
+        [[theValue([[NSFileManager defaultManager] fileExistsAtPath:[defaultSyncDir path]]) should] beYes];
     }));
     
     it (@"should create the sync directory at specified location", (^{
@@ -232,8 +232,8 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should update the local resource if Amazon offers a newer resource with a different md5", (^{
-        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResource:) withCount:1 arguments:@"test1.txt"];
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test1.txt"];
+        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test1.txt",[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test1.txt",[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
         
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
@@ -329,9 +329,9 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
 
     it (@"should download the resource from Amazon if it did not exist locally", (^{
-        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResource:) withCount:1 arguments:@"test1.txt"];
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withCount:1 arguments:@"test1.txt"];
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResource:) withArguments:@"test4.txt"];
+        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test1.txt",[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test1.txt",[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
+        [[manager should] receive:@selector(postDidUpdateNotificationWithResourceFileName:andURL:) withArguments:@"test4.txt",[defaultSyncDir URLByAppendingPathComponent:@"test4.txt"]];
 
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket-test4" withExtension:@"xml"]
         ;
@@ -395,17 +395,15 @@ describe(@"SkyS3ManagerSpec", ^{
      
     it (@"should remove legacy local resources if it was removed from Amazon", (^{
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
-                                                           withArguments:SkyS3SyncDidCopyOriginalResourceNotification,manager,@{SkyS3ResourceFileName:@"test1.txt",
-                                                                                                                                SkyS3ResourceURL:[NSURL URLWithString:@"test1.txt" relativeToURL:defaultSyncDir]},nil];
+                                                           withArguments:SkyS3SyncDidCopyOriginalResourceNotification,manager,@{SkyS3ResourceFileName:@"test1.txt",SkyS3ResourceURL:[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]},nil];
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
-                                                           withArguments:SkyS3SyncDidUpdateResourceNotification,manager,@{SkyS3ResourceFileName:@"test1.txt",
-                                                                                                                          SkyS3ResourceURL:[NSURL URLWithString:@"test1.txt" relativeToURL:defaultSyncDir]},nil];
-        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResource:) withCount:1 arguments:@"test2.txt"]; // update only from original
-        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResource:) withCount:1 arguments:@"test3.txt"]; // update only from original
+                                                           withArguments:SkyS3SyncDidUpdateResourceNotification,manager,@{SkyS3ResourceFileName:@"test1.txt",SkyS3ResourceURL:[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]},nil];
+        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test2.txt",[defaultSyncDir URLByAppendingPathComponent:@"test2.txt"]]; // update only from original
+        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test3.txt",[defaultSyncDir URLByAppendingPathComponent:@"test3.txt"]]; // update only from original
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
-                                                               withArguments:SkyS3SyncDidRemoveResourceNotification,manager,@{SkyS3ResourceFileName:@"test2.txt"},nil];
+                                                               withArguments:SkyS3SyncDidRemoveResourceNotification,manager,@{SkyS3ResourceFileName:@"test2.txt",SkyS3ResourceURL:[defaultSyncDir URLByAppendingPathComponent:@"test2.txt"]},nil];
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
-                                                               withArguments:SkyS3SyncDidRemoveResourceNotification,manager,@{SkyS3ResourceFileName:@"test3.txt"},nil];
+                                                               withArguments:SkyS3SyncDidRemoveResourceNotification,manager,@{SkyS3ResourceFileName:@"test3.txt",SkyS3ResourceURL:[defaultSyncDir URLByAppendingPathComponent:@"test3.txt"]},nil];
         [manager doSync];
         
         NSArray *syncResources = contentsOfDirectory(defaultSyncDir);
@@ -446,15 +444,50 @@ describe(@"SkyS3ManagerSpec", ^{
         [[test3URL shouldAfterWait] beNil];
     }));
 
-    it(@"should copy original resources just once", (^{
-        NSDictionary* userInfo = @{SkyS3ResourceFileName:@"test1.txt", SkyS3ResourceURL:[NSURL URLWithString:@"test1.txt" relativeToURL:defaultSyncDir]};
+    it(@"should copy original resources just once, after that only update", (^{
+        NSDictionary* userInfo = @{SkyS3ResourceFileName:@"test1.txt", SkyS3ResourceURL:[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]};
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidCopyOriginalResourceNotification,manager,userInfo,nil];
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidUpdateResourceNotification,manager,userInfo,nil];
-        [manager doSync];//copy the resources ones
+        [manager sync];//copy the resources once
         [NSThread sleepForTimeInterval:1];//needed spot that the dates are different
         writeFile(@"test1 updated",[originalResourcesDir URLByAppendingPathComponent:@"test1.txt"]);
         manager.originalResourcesCopied = NO;
-        [manager doSync];//try to copy resources again, it whould update already copied resources
+        [manager doSync];//try to copy resources again, it would update already copied resources
+    }));
+
+    it(@"should not return URLs within sync directory, even if the file exists there, until original resource copying is finished. needed for consistency", (^{
+        createDir(defaultSyncDir);
+        
+        //this guarantees that file exists in the sync directory:
+        writeFile(@"test", [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]);
+        
+        //original resources copying should be on background thread, and should not happen faster
+        //than the execution continues on the main thread
+        manager.remoteSyncEnabled = NO;//do not sync with Amazon
+        [manager sync];
+        
+        NSURL *test1URL = [manager URLForResource:@"test1" withExtension:@"txt"];
+
+        [[theValue(manager.originalResourcesCopied) should] beFalse]; //the resources should have not yet been copied
+
+        NSURL *originalTest1URL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
+
+        [[[test1URL absoluteString] should] equal:[originalTest1URL absoluteString]];
+    }));
+    
+    it(@"should return URLs within sync directory after original resource copying is finished", (^{
+        //original resources copying should be on background thread, and should not happen faster
+        //than the execution continues on the main thread
+        manager.remoteSyncEnabled = NO;//do not sync with Amazon
+        [manager sync];
+        [NSThread sleepForTimeInterval:1];
+        
+        NSURL *test1URL = [manager URLForResource:@"test1" withExtension:@"txt"];
+        [[theValue(manager.originalResourcesCopied) shouldEventually] beTrue]; //the resources should have not yet been copied
+        
+        NSURL *originalTest1URL = [defaultSyncDir  URLByAppendingPathComponent:@"test1.txt"];
+        
+        [[[test1URL absoluteString] should] equal:[originalTest1URL absoluteString]];
     }));
 });
 

@@ -17,7 +17,7 @@
 }
 
 - (NSURL *)URLForResourceWithFileName:(NSString *)fileName {
-    NSURL *URL = [NSURL URLWithString:fileName relativeToURL:self.directoryURL];
+    NSURL *URL = [self.directoryURL URLByAppendingPathComponent:fileName];
     if ([[NSFileManager defaultManager] fileExistsAtPath:[URL path]]) {
         return URL;
     }

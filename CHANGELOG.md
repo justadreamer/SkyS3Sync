@@ -1,5 +1,9 @@
 CHANGELOG
 =========
+0.18
+----
+should not crash when requesting URL for nil filename or ext
+
 0.17
 ----
 consistent URL behaviors:

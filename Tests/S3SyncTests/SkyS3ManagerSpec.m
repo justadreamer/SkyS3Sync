@@ -489,6 +489,20 @@ describe(@"SkyS3ManagerSpec", ^{
         
         [[[test1URL absoluteString] should] equal:[originalTest1URL absoluteString]];
     }));
+    
+    it(@"should not crash when requesting URL for nil filename or ext", (^{
+        NSURL *fileURL = [manager URLForResource:nil withExtension:nil];
+        [[fileURL should] beNil];
+        
+        fileURL = [manager URLForResource:@"asdf" withExtension:nil];
+        [[fileURL should] beNil];
+        
+        fileURL = [[manager syncDirectory] URLForResource:nil withExtension:nil];
+        [[fileURL should] beNil];
+        
+        fileURL = [[manager syncDirectory] URLForResource:@"asdf" withExtension:nil];
+        [[fileURL should] beNil];
+    }));
 });
 
 SPEC_END

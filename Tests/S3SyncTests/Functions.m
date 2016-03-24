@@ -9,6 +9,16 @@
 #import <Foundation/Foundation.h>
 #import <Kiwi/Kiwi.h>
 
+void createDir(NSURL *URL) {
+    NSError *error = nil;
+    NSString *path = [URL path];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        if (![[NSFileManager defaultManager] createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:&error]) {
+            fail(@"failed to create directory: %@, error: %@",path,error);
+        }
+    }
+}
+
 void delete(NSURL *URL) {
     NSString *path = [URL path];
     if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {

@@ -1,5 +1,9 @@
 CHANGELOG
 =========
+0.19
+----
+reverted the change of 0.16, since replace API does not work when we are copying the files from resource bundle
+
 0.18
 ----
 should not crash when requesting URL for nil filename or ext

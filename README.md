@@ -16,64 +16,61 @@ SkyS3SyncManager class is not a singleton (to allow f.e. for syncing several S3 
 
 AppDelegate.h:
 
-```objective-c
+```objc
 	
-	#import <SkyS3Sync/SkyS3Sync.h>
+#import <SkyS3Sync/SkyS3Sync.h>
 	
-	#define AD ((AppDelegate *)[[UIApplication sharedApplication] delegate])
+#define AD ((AppDelegate *)[[UIApplication sharedApplication] delegate])
 
-	@interface AppDelegate : UIResponder <UIApplicationDelegate>
-	@property (nonatomic,readonly) SkyS3SyncManager *s3SyncManager;
-	@property (strong, nonatomic) UIWindow *window;
-	@end
+@interface AppDelegate : UIResponder <UIApplicationDelegate>
+@property (nonatomic,readonly) SkyS3SyncManager *s3SyncManager;
+@property (strong, nonatomic) UIWindow *window;
+@end
 
 ```
 
 AppDelegate.m:
 
-```objective-c
+```objc
+@interface AppDelegate ()
+@property (nonatomic,readwrite,strong) SkyS3SyncManager *s3SyncManager;
+@end
+	
+@implementation AppDelegate
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    NSURL *resourcesDirectory = [[[NSBundle mainBundle] resourceURL] URLByAppendingPathComponent:@"test_dir"];
+    
+    #include "S3Secrets.h"
+    self.s3SyncManager = [[SkyS3SyncManager alloc] initWithS3AccessKey:S3AccessKey
+                                                             secretKey:S3SecretKey
+                                                            bucketName:S3BucketName
+                                            originalResourcesDirectory:resourcesDirectory];
 
-	@interface AppDelegate ()
-	@property (nonatomic,readwrite,strong) SkyS3SyncManager *s3SyncManager;
-	@end
+    return YES;
+}
 	
-	@implementation AppDelegate
+- (void)applicationDidBecomeActive:(UIApplication *)application {
+    [self.s3SyncManager sync];
+}
 	
-	
-	- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-	    NSURL *resourcesDirectory = [[[NSBundle mainBundle] resourceURL] URLByAppendingPathComponent:@"test_dir"];
-	
-	    #include "S3Secrets.h"
-	    self.s3SyncManager = [[SkyS3SyncManager alloc] initWithS3AccessKey:S3AccessKey
-	                                                             secretKey:S3SecretKey
-	                                                            bucketName:S3BucketName
-	                                            originalResourcesDirectory:resourcesDirectory];
-	
-	    return YES;
-	}
-	
-	- (void)applicationDidBecomeActive:(UIApplication *)application {
-	    [self.s3SyncManager sync];
-	}
-	
-	@end
+@end
 
 ```
 
 Then in code you can call:
 
-```objective-c  
-	#include "AppDelegate.h"
+```objc  
+#include "AppDelegate.h"
 	
-	//...
-	NSURL *URL = [AD.s3SyncManager URLForResourceWithFileName:@"<#filename#>"];
-	//or:
-	NSURL *URL = [AD.s3Sync URLForResource:@"<#filename#>" withExtension:@"<#extension#>"];
+//...
+NSURL *URL = [AD.s3SyncManager URLForResourceWithFileName:@"<#filename#>"];
+//or:
+NSURL *URL = [AD.s3Sync URLForResource:@"<#filename#>" withExtension:@"<#extension#>"];
 ```
 
 Note if the resource is not present in the sync-directory (mirroring the bucket) - this call will **fallback** to the local resource version.  In order to always get the resource from the mirror you should use this API:
 
-```objective-c
+```objc
 [[AD.s3Sync syncDirectory] URLForResource:withExtension:]
 ```
 
@@ -83,7 +80,7 @@ To be able to react to changes when some resource has been updated and downsynce
 
 There are other notifications documented in `SkyS3SyncManager.h` - they can be used to react to differentiate other events, such as:
 
-```
+```objc
 SkyS3SyncDidCopyOriginalResourceNotification
 SkyS3SyncDidRemoveResourceNotification
 SkyS3SyncDidUpdateResourceNotification
@@ -93,11 +90,10 @@ The last notification is sent when S3SyncManager completed syncing all of the ma
 
 
 ## Directories
-By default SkyS3SyncManager creates SkyS3Sync directory under app's Documents directory.  However you can specify a different directory (f.e. if syncing several different buckets and they appear to have files with the same names) using the property of SkyS3SyncManager:
+By default `SkyS3SyncManager` creates `SkyS3Sync` directory under app's `Documents` directory.  However you can specify a different directory (f.e. if syncing several different buckets and they appear to have files with the same names) using the property of SkyS3SyncManager:
 
-```objective-c
-
-	@property (nonatomic,strong) NSString *syncDirectoryName;
+```objc
+@property (nonatomic,strong) NSString *syncDirectoryName;
 ```
 
 ## Syncing strategy
@@ -107,8 +103,10 @@ Addition and deletion are correspondingly mirrored into the local sync directory
 
 ## SkyS3ResourceURLProvider API
 There is a single API for now, which allows to substitute the SkyS3SyncManager with an NSBundle if needed:
-    
-    - (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext;
+
+```objc    
+- (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext;
+```
 
 the difference of this API from NSBundle's is that it returns nil if resource does not actually exist.  The check for existance is an unexpected behavior, but that's how we use it in our projects, might to change in the future, as we introduce some cleaner APIs.
 

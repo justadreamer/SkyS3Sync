@@ -74,7 +74,7 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
 #pragma mark - public methods:
 - (instancetype) initWithS3AccessKey:(NSString *)accessKey secretKey:(NSString *)secretKey bucketName:(NSString *)bucketName originalResourcesDirectory:(NSURL *)originalResourcesDirectory {
     if (self = [super init]) {
-        self.dispatchQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0);
+        self.dispatchQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
         self.S3AccessKey = accessKey;
         self.S3SecretKey = secretKey;
         self.S3BucketName = bucketName;

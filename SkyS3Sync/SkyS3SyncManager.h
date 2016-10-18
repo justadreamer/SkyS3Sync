@@ -45,6 +45,22 @@ extern NSString * const SkyS3SyncDidUpdateResourceNotification;
 extern NSString * const SkyS3SyncDidFinishSyncNotification;
 
 /**
+ *  Posted when bucket list request fails.  User info contains `bucket` name. 
+ *  SkyS3BucketName key.
+ */
+extern NSString * const SkyS3SyncDidFailToListBucket;
+
+/**
+ *  Posted when resource download failed.  User info contains our normal 
+ *  SkyS3ResourceFileName key.
+ */
+extern NSString * const SkyS3SyncDidFailToDownloadResource;
+
+/**
+ *  Bucket name with which the manager is initialized. 
+ */
+extern NSString * const SkyS3BucketName;
+/**
  *  This key is part of userInfo dictionary for the 
  *  SkyS3SyncDidUpdateResourceNotification, contains the filename (with extension) of the resource that has
  *  been updated

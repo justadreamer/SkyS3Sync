@@ -21,9 +21,12 @@ NSString * const SkyS3SyncDidFinishSyncNotification = @"SkyS3SyncDidFinishSyncNo
 NSString * const SkyS3SyncDidRemoveResourceNotification = @"SkyS3SyncDidRemoveResourceNotification";
 NSString * const SkyS3SyncDidUpdateResourceNotification = @"SkyS3SyncDidUpdateResourceNotification";
 NSString * const SkyS3SyncDidCopyOriginalResourceNotification = @"SkyS3SyncDidCopyOriginalResourceNotification";
+NSString * const SkyS3SyncDidFailToListBucket = @"SkyS3SyncDidFailToListBucket";
+NSString * const SkyS3SyncDidFailToDownloadResource = @"SkyS3SyncDidFailToDownloadResource";;
+
 NSString * const SkyS3ResourceFileName = @"SkyS3ResourceFileName";
 NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
-
+NSString * const SkyS3BucketName = @"SkyS3BucketName";
 
 @interface SkyS3SyncManager ()
 /**
@@ -246,6 +249,7 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
     } failure:^(NSError *error) {
         @strongify(self);
         [self.class log:@"error = %@", error];
+        [self postNotificationName:SkyS3SyncDidFailToListBucket userInfo:@{SkyS3BucketName:self.S3BucketName}];
         [self finishSync];
     }];
 }
@@ -303,6 +307,7 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
             [self postDidUpdateNotificationWithResourceFileName:resource.name andURL:resource.localURL];
             completedBlock();
         } failure:^(NSError *error) {
+            [self postNotificationName:SkyS3SyncDidFailToDownloadResource userInfo:@{SkyS3ResourceFileName:resource.name}];
             completedBlock();
         }];
     }];
@@ -327,15 +332,21 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
 }
 
 - (void) postNotificationName:(NSString*)notificationName withResourceFileName:(NSString*)resourceFileName andURL:(NSURL *)resourceURL {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSMutableDictionary* userInfo = [NSMutableDictionary dictionary];
-        if (resourceFileName) {
-            userInfo[SkyS3ResourceFileName] = resourceFileName;
-        }
 
-        if (resourceURL) {
-            userInfo[SkyS3ResourceURL] = resourceURL;
-        }
+    NSMutableDictionary* userInfo = [NSMutableDictionary dictionary];
+    if (resourceFileName) {
+        userInfo[SkyS3ResourceFileName] = resourceFileName;
+    }
+
+    if (resourceURL) {
+        userInfo[SkyS3ResourceURL] = resourceURL;
+    }
+
+    [self postNotificationName:notificationName userInfo:userInfo];
+}
+
+- (void)postNotificationName:(NSString *)notificationName userInfo:(NSDictionary *)userInfo {
+    dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:notificationName object:self userInfo:userInfo];
     });
 }

@@ -503,6 +503,33 @@ describe(@"SkyS3ManagerSpec", ^{
         fileURL = [[manager syncDirectory] URLForResource:@"asdf" withExtension:nil];
         [[fileURL should] beNil];
     }));
+    
+    it(@"should send SkyS3SyncDidFailToListBucket when bucket list request fails", (^{
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidFailToListBucket,manager, @{SkyS3BucketName:@"test_bucket_name"},nil];
+        
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/")
+        .andFailWithError([NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:nil]);
+        [manager sync];
+    }));
+    
+    it(@"should send SkyS3SyncDidFailToDownloadResource when resource download fails", (^{
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidFailToDownloadResource, manager, @{SkyS3ResourceFileName:@"test1.txt"},nil];
+        
+        NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"]
+        ;
+        
+        [[LSNocilla sharedInstance] clearStubs];
+        
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
+        andReturn(200).
+        withHeader(@"Content-Type",@"application/xml").
+        withBody(readFile(xmlURL));
+        
+        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/test1.txt").
+        andFailWithError([NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:nil]);
+        
+        [manager sync];
+    }));
 });
 
 SPEC_END

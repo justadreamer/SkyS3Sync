@@ -513,7 +513,7 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it(@"should send SkyS3SyncDidFailToDownloadResource when resource download fails", (^{
-        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidFailToDownloadResource, manager, @{SkyS3ResourceFileName:@"test1.txt"},nil];
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidFailToDownloadResource, manager, @{SkyS3ResourceFileName:@"test1.txt", SkyS3BucketName:@"test_bucket_name"},nil];
         
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"]
         ;

@@ -17,6 +17,8 @@
 #import "SkyS3Directory.h"
 #import "SkyS3ResourceData.h"
 
+#define _SkyS3SafeString(x) (x ? x : @"")
+
 NSString * const SkyS3SyncDidFinishSyncNotification = @"SkyS3SyncDidFinishSyncNotification";
 NSString * const SkyS3SyncDidRemoveResourceNotification = @"SkyS3SyncDidRemoveResourceNotification";
 NSString * const SkyS3SyncDidUpdateResourceNotification = @"SkyS3SyncDidUpdateResourceNotification";
@@ -249,7 +251,7 @@ NSString * const SkyS3BucketName = @"SkyS3BucketName";
     } failure:^(NSError *error) {
         @strongify(self);
         [self.class log:@"error = %@", error];
-        [self postNotificationName:SkyS3SyncDidFailToListBucket userInfo:@{SkyS3BucketName:self.S3BucketName}];
+        [self postNotificationName:SkyS3SyncDidFailToListBucket userInfo:@{SkyS3BucketName:_SkyS3SafeString(self.S3BucketName)}];
         [self finishSync];
     }];
 }
@@ -307,7 +309,7 @@ NSString * const SkyS3BucketName = @"SkyS3BucketName";
             [self postDidUpdateNotificationWithResourceFileName:resource.name andURL:resource.localURL];
             completedBlock();
         } failure:^(NSError *error) {
-            [self postNotificationName:SkyS3SyncDidFailToDownloadResource userInfo:@{SkyS3ResourceFileName:resource.name}];
+            [self postNotificationName:SkyS3SyncDidFailToDownloadResource userInfo:@{SkyS3ResourceFileName:_SkyS3SafeString(resource.name), SkyS3BucketName:_SkyS3SafeString(self.S3BucketName)}];
             completedBlock();
         }];
     }];

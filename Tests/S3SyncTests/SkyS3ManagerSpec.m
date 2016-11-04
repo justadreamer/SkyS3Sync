@@ -24,6 +24,7 @@ void(*hit)(NSString *,void(^)(void)) = it;
 @property (atomic,assign) BOOL syncInProgress;
 
 - (void) doSync;
+- (void) doOriginalResourcesCopying;
 + (NSDate *) modificationDateForURL:(NSURL *)URL;
 - (NSArray *) remoteResourcesFromBucketListXML:(ONOXMLDocument *)document;
 - (void) postDidRemoveNotificationWithResourceFileName:(NSString *)resourceFileName andURL:(NSURL *)resourceURL;
@@ -49,11 +50,21 @@ describe(@"SkyS3ManagerSpec", ^{
         [[LSNocilla sharedInstance] stop];
     });
 
-    afterEach(^{
+    void(^clearStubs)(void) = ^{
         [[LSNocilla sharedInstance] clearStubs];
+    };
+
+    afterEach(^{
+        clearStubs();
         delete(defaultSyncDir);
         delete(originalResourcesDir);
     });
+    
+    void(^stub404)(void) = ^{
+        stubRequest(@"GET", @".*".regex).
+        andFailWithError([NSError errorWithDomain:@"'This is OK - deliberately done for tests'" code:404 userInfo:@{}]);
+    };
+    
     
     beforeEach(^{
         manager = [[SkyS3SyncManager alloc]initWithS3AccessKey:@"test_access_key" secretKey:@"test_secret_key" bucketName:@"test_bucket_name" originalResourcesDirectory:originalResourcesDir];
@@ -66,17 +77,17 @@ describe(@"SkyS3ManagerSpec", ^{
         writeFile(@"test1",[originalResourcesDir URLByAppendingPathComponent:@"test1.txt"]);
         writeFile(@"test2",[originalResourcesDir URLByAppendingPathComponent:@"test2.txt"]);
         writeFile(@"test3",[originalResourcesDir URLByAppendingPathComponent:@"test3.txt"]);
-        
-        stubRequest(@"GET", @".*".regex).
-        andFailWithError([NSError errorWithDomain:@"'This is OK - deliberately done for tests'" code:404 userInfo:@{}]);
+
+        clearStubs();
     });
     
     it (@"should create the sync directory at default location", (^{
+        stub404();
+
         [[theValue(manager.originalResourcesCopied) should] beNo];
         
         [manager sync];
         [NSThread sleepForTimeInterval:1];
-
         [[theValue(manager.originalResourcesCopied) shouldEventually] beYes];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
 
@@ -84,6 +95,8 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should create the sync directory at specified location", (^{
+        stub404();
+        
         NSString *different = @"DifferentSyncDir";
         NSURL *differentSyncDir = [documentsDir URLByAppendingPathComponent:different];
         [[theValue([[NSFileManager defaultManager] fileExistsAtPath:[differentSyncDir path]]) should] beNo];
@@ -101,6 +114,7 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should copy the resources into the sync directory at specified location", (^{
+        stub404();
         NSArray *syncResources = contentsOfDirectory(defaultSyncDir);
         [syncResources shouldBeNil];
 
@@ -114,6 +128,7 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should not copy the same resources if the sync resources content is the same as original, even if original ones are newer", (^{
+        stub404();
         [manager doSync];//copy the resources ones
         [[expectFutureValue(theValue(manager.originalResourcesCopied)) shouldEventually] beYes];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
@@ -140,6 +155,7 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should copy the resources if the content has been modified and the modification date is either same or newer", (^{
+        stub404();
         [manager doSync];
 
         NSURL *originalURL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
@@ -167,6 +183,7 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should not copy the resources if the content differs, but the modification date of the synced is newer than original", (^{
+        stub404();
         [manager doSync];
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         NSURL *originalURL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
@@ -195,6 +212,7 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should copy the file from resources if it did not exist before in the sync directory", (^{
+        stub404();
         [manager doSync];
         NSString *test4 = @"test4.txt";
         NSURL *test4URLOriginal = [originalResourcesDir URLByAppendingPathComponent:test4];
@@ -232,8 +250,9 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should update the local resource if Amazon offers a newer resource with a different md5", (^{
-        [[manager should] receive:@selector(postDidCopyOriginalNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test1.txt",[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
-        [[manager should] receive:@selector(postDidUpdateNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test1.txt",[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
+        stub404();
+        [[manager shouldEventually] receive:@selector(postDidCopyOriginalNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test1.txt",[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
+        [[manager shouldEventually] receive:@selector(postDidUpdateNotificationWithResourceFileName:andURL:) withCount:1 arguments:@"test1.txt",[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]];
         
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
@@ -242,9 +261,12 @@ describe(@"SkyS3ManagerSpec", ^{
         [[date1 should] beNonNil];
         
         //stubbing requests:
-        [[LSNocilla sharedInstance] clearStubs];
+
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"]
         ;
+        
+        clearStubs();
+        
         stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
         andReturn(200).
         withHeader(@"Content-Type",@"application/xml").
@@ -268,6 +290,7 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should not update the local resource if Amazon offers a newer resource but with the same md5", (^{
+        stub404();
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
 
@@ -276,7 +299,6 @@ describe(@"SkyS3ManagerSpec", ^{
         [[date1 should] beNonNil];
 
         //stubbing requests:
-        [[LSNocilla sharedInstance] clearStubs];
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket-same-md5" withExtension:@"xml"]
         ;
         stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
@@ -296,6 +318,7 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it (@"should update the local resource if Amazon offers an older resource but with a different md5", (^{
+        stub404();
         [manager doSync]; //to copy test1
         [[expectFutureValue(theValue(manager.syncInProgress)) shouldEventually] beNo];
         
@@ -304,9 +327,9 @@ describe(@"SkyS3ManagerSpec", ^{
         [[date1 should] beNonNil];
         
         //stubbing requests:
-        [[LSNocilla sharedInstance] clearStubs];
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket-older-different-md5" withExtension:@"xml"]
         ;
+        clearStubs();
         stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
         andReturn(200).
         withHeader(@"Content-Type",@"application/xml").
@@ -335,9 +358,7 @@ describe(@"SkyS3ManagerSpec", ^{
 
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket-test4" withExtension:@"xml"]
         ;
-        
-        [[LSNocilla sharedInstance] clearStubs];
-        
+
         stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
         andReturn(200).
         withHeader(@"Content-Type",@"application/xml").
@@ -380,7 +401,6 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it(@"should not sync with Amazon if remoteSyncEnabled is set to NO", (^{
-        [[LSNocilla sharedInstance] clearStubs];
         [[[LSNocilla sharedInstance] shouldNot] receive:@selector(responseForRequest:)];
         manager.remoteSyncEnabled = NO;
         [manager doSync]; //to copy test1
@@ -404,15 +424,18 @@ describe(@"SkyS3ManagerSpec", ^{
                                                                withArguments:SkyS3SyncDidRemoveResourceNotification,manager,@{SkyS3ResourceFileName:@"test2.txt",SkyS3ResourceURL:[defaultSyncDir URLByAppendingPathComponent:@"test2.txt"]},nil];
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:)
                                                                withArguments:SkyS3SyncDidRemoveResourceNotification,manager,@{SkyS3ResourceFileName:@"test3.txt",SkyS3ResourceURL:[defaultSyncDir URLByAppendingPathComponent:@"test3.txt"]},nil];
-        [manager doSync];
-        
+
+        manager.remoteSyncEnabled = NO;
+        [manager doOriginalResourcesCopying];
+
         NSArray *syncResources = contentsOfDirectory(defaultSyncDir);
         [[syncResources should] haveCountOf:3];
         
         // stubbing requests:
         // whould be great to have response delay for this stubs,
         // so we could also test updates from original notifications with their userInfo dicts for deleted resources ('test2.txt' & 'test3.txt') the same way as we do for 'test1.txt'
-        [[LSNocilla sharedInstance] clearStubs];
+        clearStubs();
+        
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"];
         stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
         andReturn(200).
@@ -423,6 +446,9 @@ describe(@"SkyS3ManagerSpec", ^{
         andReturn(200).
         withHeader(@"Content-Type",@"text/plain").
         withBody(@"test1_amazon");
+        
+        manager.remoteSyncEnabled = YES;
+        [manager doSync];
         
         [NSThread sleepForTimeInterval:1];//so that the updated resource is 1 second newer
         
@@ -445,6 +471,8 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
 
     it(@"should copy original resources just once, after that only update", (^{
+        stub404();
+        
         NSDictionary* userInfo = @{SkyS3ResourceFileName:@"test1.txt", SkyS3ResourceURL:[defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]};
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidCopyOriginalResourceNotification,manager,userInfo,nil];
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidUpdateResourceNotification,manager,userInfo,nil];
@@ -505,27 +533,33 @@ describe(@"SkyS3ManagerSpec", ^{
     }));
     
     it(@"should send SkyS3SyncDidFailToListBucket when bucket list request fails", (^{
-        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidFailToListBucket,manager, @{SkyS3BucketName:@"test_bucket_name"},nil];
+        NSString *URLString = @"https://test_bucket_name.s3.amazonaws.com/";
+        NSURL *URL = [NSURL URLWithString:URLString];
+
+        NSError *error = [NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:@{NSURLErrorFailingURLErrorKey:URL, NSURLErrorFailingURLStringErrorKey:URLString}];
         
-        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/")
-        .andFailWithError([NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:nil]);
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidFailToListBucket,manager, @{SkyS3BucketName:@"test_bucket_name", SkyS3Error:error},nil];
+        
+        stubRequest(@"GET", URLString)
+        .andFailWithError(error);
         [manager sync];
     }));
     
     it(@"should send SkyS3SyncDidFailToDownloadResource when resource download fails", (^{
-        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidFailToDownloadResource, manager, @{SkyS3ResourceFileName:@"test1.txt", SkyS3BucketName:@"test_bucket_name"},nil];
+        NSString *URLString = @"https://test_bucket_name.s3.amazonaws.com/test1.txt";
+        NSURL *URL = [NSURL URLWithString:URLString];
+
+        [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidFailToDownloadResource, manager, @{SkyS3ResourceFileName:@"test1.txt", SkyS3BucketName:@"test_bucket_name", SkyS3Error: [NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:@{NSURLErrorFailingURLStringErrorKey: URLString, NSURLErrorFailingURLErrorKey: URL}]},nil];
         
         NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"]
         ;
-        
-        [[LSNocilla sharedInstance] clearStubs];
         
         stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
         andReturn(200).
         withHeader(@"Content-Type",@"application/xml").
         withBody(readFile(xmlURL));
         
-        stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/test1.txt").
+        stubRequest(@"GET", URLString).
         andFailWithError([NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:nil]);
         
         [manager sync];

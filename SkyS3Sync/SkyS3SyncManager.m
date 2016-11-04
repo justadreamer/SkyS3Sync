@@ -29,6 +29,7 @@ NSString * const SkyS3SyncDidFailToDownloadResource = @"SkyS3SyncDidFailToDownlo
 NSString * const SkyS3ResourceFileName = @"SkyS3ResourceFileName";
 NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
 NSString * const SkyS3BucketName = @"SkyS3BucketName";
+NSString * const SkyS3Error = @"SkyS3Error";
 
 @interface SkyS3SyncManager ()
 /**
@@ -251,7 +252,7 @@ NSString * const SkyS3BucketName = @"SkyS3BucketName";
     } failure:^(NSError *error) {
         @strongify(self);
         [self.class log:@"error = %@", error];
-        [self postNotificationName:SkyS3SyncDidFailToListBucket userInfo:@{SkyS3BucketName:_SkyS3SafeString(self.S3BucketName)}];
+        [self postNotificationName:SkyS3SyncDidFailToListBucket userInfo:@{SkyS3BucketName:_SkyS3SafeString(self.S3BucketName), SkyS3Error: error}];
         [self finishSync];
     }];
 }
@@ -309,7 +310,7 @@ NSString * const SkyS3BucketName = @"SkyS3BucketName";
             [self postDidUpdateNotificationWithResourceFileName:resource.name andURL:resource.localURL];
             completedBlock();
         } failure:^(NSError *error) {
-            [self postNotificationName:SkyS3SyncDidFailToDownloadResource userInfo:@{SkyS3ResourceFileName:_SkyS3SafeString(resource.name), SkyS3BucketName:_SkyS3SafeString(self.S3BucketName)}];
+            [self postNotificationName:SkyS3SyncDidFailToDownloadResource userInfo:@{SkyS3ResourceFileName:_SkyS3SafeString(resource.name), SkyS3BucketName:_SkyS3SafeString(self.S3BucketName), SkyS3Error: error}];
             completedBlock();
         }];
     }];

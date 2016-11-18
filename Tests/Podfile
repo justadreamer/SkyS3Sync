@@ -2,6 +2,9 @@ source 'https://github.com/CocoaPods/Specs.git'
 
 platform :ios, '7.0'
 
-pod 'SkyS3Sync', :path => '../'
-pod 'Kiwi', '~> 2.3'
-pod 'Nocilla', '~> 0.9'
+target 'S3SyncTests' do
+  pod 'SkyS3Sync', :path => '../'
+  pod 'Kiwi', '~> 2.3'
+  pod 'Nocilla', '~> 0.9'
+  pod 'OHHTTPStubs', '~> 5.2'
+end

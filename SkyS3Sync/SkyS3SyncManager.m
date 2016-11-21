@@ -31,6 +31,8 @@ NSString * const SkyS3ResourceURL = @"SkyS3ResourceURL";
 NSString * const SkyS3BucketName = @"SkyS3BucketName";
 NSString * const SkyS3Error = @"SkyS3Error";
 
+static NSInteger const SkyS3MaxRetries = 3;
+
 @interface SkyS3SyncManager ()
 /**
  *  Amazon S3 Access Key
@@ -73,6 +75,8 @@ NSString * const SkyS3Error = @"SkyS3Error";
 @property (nonatomic,readwrite,strong) NSURL *syncDirectoryURL;
 @property (nonatomic,strong) SkyS3Directory *actualSyncDirectory;
 @property (nonatomic,strong) dispatch_queue_t dispatchQueue;
+
+@property (nonatomic,assign) NSInteger listBucketRetries;
 @end
 
 @implementation SkyS3SyncManager
@@ -194,6 +198,7 @@ NSString * const SkyS3Error = @"SkyS3Error";
 
     [self doOriginalResourcesCopying];
     if (self.remoteSyncEnabled) {
+        self.listBucketRetries = 0;
         [self doAmazonS3Sync];
     } else {
         [self finishSync];
@@ -251,6 +256,11 @@ NSString * const SkyS3Error = @"SkyS3Error";
         [self processS3ListBucket:responseObject];
     } failure:^(NSError *error) {
         @strongify(self);
+        if (self.listBucketRetries < SkyS3MaxRetries) {
+            [self performSelector:@selector(doAmazonS3Sync)];
+            self.listBucketRetries++;
+            return;
+        }
         [self.class log:@"error = %@", error];
         [self postNotificationName:SkyS3SyncDidFailToListBucket userInfo:@{SkyS3BucketName:_SkyS3SafeString(self.S3BucketName), SkyS3Error: error}];
         [self finishSync];
@@ -289,35 +299,45 @@ NSString * const SkyS3Error = @"SkyS3Error";
         }
     }
     
-    NSString* cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) lastObject];
-    NSURL *cachesURL = [NSURL fileURLWithPath:cachesPath];
+
     remoteResources = [remoteResources reject:^BOOL(SkyS3ResourceData *resource) {
         return [resource.etag isEqualToString:[self md5ForURL:resource.localURL]];
     }];
 
     [remoteResources each:^(SkyS3ResourceData *resource) {
-        [self.class log:@"updating %@",resource.name];
-        if (!resource.name) {
-            return;
-        }
-        NSURL *tmpURL = [cachesURL URLByAppendingPathComponent:resource.name];
-        NSOutputStream *stream = [NSOutputStream outputStreamToFileAtPath:[tmpURL path] append:NO];
-        self.amazonS3Manager.responseSerializer = [AFHTTPResponseSerializer serializer];
-        [self.amazonS3Manager getObjectWithPath:resource.name outputStream:stream progress:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
-        } success:^(id responseObject) {
-            [self copyFrom:tmpURL to:resource.localURL];
-            [self.class log:@"did update %@",resource.name];
-            [self postDidUpdateNotificationWithResourceFileName:resource.name andURL:resource.localURL];
-            completedBlock();
-        } failure:^(NSError *error) {
-            [self postNotificationName:SkyS3SyncDidFailToDownloadResource userInfo:@{SkyS3ResourceFileName:_SkyS3SafeString(resource.name), SkyS3BucketName:_SkyS3SafeString(self.S3BucketName), SkyS3Error: error}];
-            completedBlock();
-        }];
+        [self downloadResource:resource withCompletedBlock:completedBlock];
     }];
 
     if (remoteResources.count == 0) {
         [self finishSync];
     }
+}
+
+- (void)downloadResource:(SkyS3ResourceData *)resource withCompletedBlock:(void(^)(void))completedBlock {
+    NSString* cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) lastObject];
+    NSURL *cachesURL = [NSURL fileURLWithPath:cachesPath];
+    [self.class log:@"updating %@",resource.name];
+    if (!resource.name) {
+        return;
+    }
+    NSURL *tmpURL = [cachesURL URLByAppendingPathComponent:resource.name];
+    NSOutputStream *stream = [NSOutputStream outputStreamToFileAtPath:[tmpURL path] append:NO];
+    self.amazonS3Manager.responseSerializer = [AFHTTPResponseSerializer serializer];
+    [self.amazonS3Manager getObjectWithPath:resource.name outputStream:stream progress:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
+    } success:^(id responseObject) {
+        [self copyFrom:tmpURL to:resource.localURL];
+        [self.class log:@"did update %@",resource.name];
+        [self postDidUpdateNotificationWithResourceFileName:resource.name andURL:resource.localURL];
+        completedBlock();
+    } failure:^(NSError *error) {
+        if (resource.retries < SkyS3MaxRetries) {
+            resource.retries++;
+            [self downloadResource:resource withCompletedBlock:completedBlock];
+        } else {
+            [self postNotificationName:SkyS3SyncDidFailToDownloadResource userInfo:@{SkyS3ResourceFileName:_SkyS3SafeString(resource.name), SkyS3BucketName:_SkyS3SafeString(self.S3BucketName), SkyS3Error: error}];
+            completedBlock();
+        }
+    }];
 }
 
 #pragma mark - Notifications

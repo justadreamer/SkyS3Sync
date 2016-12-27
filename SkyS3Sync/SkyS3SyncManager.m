@@ -109,12 +109,9 @@ static NSInteger const SkyS3MaxRetries = 3;
         return nil;
     }
 
-    NSURL *URL = nil;
-    if (self.originalResourcesCopied) {
-        NSURL *URL = [self.actualSyncDirectory URLForResourceWithFileName:fileName];
-        if (URL) {
-            return URL;
-        }
+    NSURL *URL = [self.actualSyncDirectory URLForResourceWithFileName:fileName];
+    if (URL) {
+        return URL;
     }
 
     URL = [self.originalResourcesDirectory URLByAppendingPathComponent:fileName];

@@ -482,26 +482,6 @@ describe(@"SkyS3ManagerSpec", ^{
         manager.originalResourcesCopied = NO;
         [manager doSync];//try to copy resources again, it would update already copied resources
     }));
-
-    it(@"should not return URLs within sync directory, even if the file exists there, until original resource copying is finished. needed for consistency", (^{
-        createDir(defaultSyncDir);
-        
-        //this guarantees that file exists in the sync directory:
-        writeFile(@"test", [defaultSyncDir URLByAppendingPathComponent:@"test1.txt"]);
-        
-        //original resources copying should be on background thread, and should not happen faster
-        //than the execution continues on the main thread
-        manager.remoteSyncEnabled = NO;//do not sync with Amazon
-        [manager sync];
-        
-        NSURL *test1URL = [manager URLForResource:@"test1" withExtension:@"txt"];
-
-        [[theValue(manager.originalResourcesCopied) should] beFalse]; //the resources should have not yet been copied
-
-        NSURL *originalTest1URL = [originalResourcesDir URLByAppendingPathComponent:@"test1.txt"];
-
-        [[[test1URL absoluteString] should] equal:[originalTest1URL absoluteString]];
-    }));
     
     it(@"should return URLs within sync directory after original resource copying is finished", (^{
         //original resources copying should be on background thread, and should not happen faster

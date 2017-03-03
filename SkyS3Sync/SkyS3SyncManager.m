@@ -66,7 +66,11 @@ static NSInteger const SkyS3MaxRetries = 3;
 @property (atomic,assign) BOOL originalResourcesCopied;
 
 
-@property (nonatomic,strong) AFAmazonS3Manager *amazonS3Manager;
+/** 
+ * These manager objects will have different responseSerializers
+ */
+@property (nonatomic,strong) AFAmazonS3Manager *amazonS3BucketListManager;
+@property (nonatomic,strong) AFAmazonS3Manager *amazonS3DownloadResourceManager;
 
 /**
  *  By default the sync directory is auto-created in an internal location.  You can specify your own directory
@@ -162,14 +166,28 @@ static NSInteger const SkyS3MaxRetries = 3;
     return _syncDirectoryName;
 }
 
-- (AFAmazonS3Manager *)amazonS3Manager {
-    if (!_amazonS3Manager) {
-        _amazonS3Manager = [[AFAmazonS3Manager alloc] initWithAccessKeyID:self.S3AccessKey secret:self.S3SecretKey];
-        _amazonS3Manager.completionQueue = self.dispatchQueue;
-        _amazonS3Manager.requestSerializer.bucket = self.S3BucketName;
-        _amazonS3Manager.requestSerializer.cachePolicy = NSURLRequestReloadIgnoringCacheData;
+- (AFAmazonS3Manager *)makeAFManager {
+    AFAmazonS3Manager *manager = [[AFAmazonS3Manager alloc] initWithAccessKeyID:self.S3AccessKey secret:self.S3SecretKey];
+    manager.completionQueue = self.dispatchQueue;
+    manager.requestSerializer.bucket = self.S3BucketName;
+    manager.requestSerializer.cachePolicy = NSURLRequestReloadIgnoringCacheData;
+    return manager;
+}
+
+- (AFAmazonS3Manager *)amazonS3BucketListManager {
+    if (!_amazonS3BucketListManager) {
+        _amazonS3BucketListManager = [self makeAFManager];
+        _amazonS3BucketListManager.responseSerializer = [AFOnoResponseSerializer serializer];
     }
-    return _amazonS3Manager;
+    return _amazonS3BucketListManager;
+}
+
+- (AFAmazonS3Manager *)amazonS3DownloadResourceManager {
+    if (!_amazonS3DownloadResourceManager) {
+        _amazonS3DownloadResourceManager = [self makeAFManager];
+        _amazonS3DownloadResourceManager.responseSerializer = [AFHTTPResponseSerializer serializer];
+    }
+    return _amazonS3DownloadResourceManager;
 }
 
 #pragma mark - actual sync
@@ -247,8 +265,7 @@ static NSInteger const SkyS3MaxRetries = 3;
 
 - (void) doAmazonS3Sync {
     @weakify(self);
-    self.amazonS3Manager.responseSerializer = [AFOnoResponseSerializer serializer];
-    [self.amazonS3Manager getBucket:@"/" success:^(id responseObject) {
+    [self.amazonS3BucketListManager getBucket:@"/" success:^(id responseObject) {
         @strongify(self);
         [self processS3ListBucket:responseObject];
     } failure:^(NSError *error) {
@@ -319,8 +336,8 @@ static NSInteger const SkyS3MaxRetries = 3;
     }
     NSURL *tmpURL = [cachesURL URLByAppendingPathComponent:resource.name];
     NSOutputStream *stream = [NSOutputStream outputStreamToFileAtPath:[tmpURL path] append:NO];
-    self.amazonS3Manager.responseSerializer = [AFHTTPResponseSerializer serializer];
-    [self.amazonS3Manager getObjectWithPath:resource.name outputStream:stream progress:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
+
+    [self.amazonS3DownloadResourceManager getObjectWithPath:resource.name outputStream:stream progress:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
     } success:^(id responseObject) {
         [self copyFrom:tmpURL to:resource.localURL];
         [self.class log:@"did update %@",resource.name];

@@ -101,10 +101,10 @@ static NSInteger const SkyS3MaxRetries = 3;
 #pragma mark - SkyResourceProvider
 
 - (NSURL *)URLForResource:(NSString *)name withExtension:(NSString *)ext {
-    if (!name || !ext) {
+    if (!name) {
         return nil;
     }
-    NSString *resourceFileName = [name stringByAppendingPathExtension:ext];
+    NSString *resourceFileName = ext.length > 0 ? [name stringByAppendingPathExtension:ext] : name;
     return [self URLForResourceWithFileName:resourceFileName];
 }
 

@@ -1,5 +1,51 @@
 CHANGELOG
 =========
+
+0.30
+allow to obtain the resource from the sync directory without any extension
+----
+
+0.29
+separated AFAmazonS3Manager objects for loading list and individual resources
+----
+
+0.28
+added ‘nonnull’ and ‘nullable’ qualifiers to SkyS3SyncManager
+removed legacy test. S3SyncTests project updated to new swift syntax
+----
+
+0.27
+don’t check is original resources copied in URLForResourceWithFileName: method
+----
+
+0.26
+3 attempts to load list or resource before failing
+----
+
+0.25
+SkyS3Error is passed in all fail download notifications
+----
+
+0.24
+fail load resource notification contains bucket name
+----
+
+0.23
+notifications when resource loading fails
+----
+
+0.22
+sync queue changed priority to DEFAULT, otherwise sometimes resources do not sync
+----
+
+0.21
+added Mac OS X 10.10 as a deployment target
+----
+
+0.20
+migrate to git@gitlab.postindustria.com:ios/skys3sync.git
+----
+
 0.19
 ----
 reverted the change of 0.16, since replace API does not work when we are copying the files from resource bundle

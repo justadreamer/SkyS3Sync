@@ -1,7 +1,7 @@
 CHANGELOG
 =========
 
-0.30
+0.31
 allow to obtain the resource from the sync directory without any extension
 ----
 

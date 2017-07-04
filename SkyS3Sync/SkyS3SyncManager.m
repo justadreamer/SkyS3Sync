@@ -288,10 +288,12 @@ static NSInteger const SkyS3MaxRetries = 3;
 
     @weakify(self);
     void(^completedBlock)() = ^{
-        if (++completedCounter == remoteResources.count) {
-            @strongify(self);
-            [self finishSync];
-        };
+        @strongify(self);
+        @synchronized(self) {
+            if (++completedCounter == remoteResources.count) {
+                [self finishSync];
+            };
+        }
     };
 
     // delete local files that are absent on the remote host

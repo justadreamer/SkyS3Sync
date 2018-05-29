@@ -12,6 +12,8 @@
 @property (nonatomic,strong) NSString *title;
 @property (nonatomic,strong) NSString *text;
 
+
+- (instancetype) init NS_UNAVAILABLE;
 - (instancetype) initWithResourceURL:(NSURL *)URL NS_DESIGNATED_INITIALIZER;
 
 @end

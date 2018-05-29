@@ -531,8 +531,7 @@ describe(@"SkyS3ManagerSpec", ^{
 
         [[[NSNotificationCenter defaultCenter] shouldEventually] receive:@selector(postNotificationName:object:userInfo:) withArguments:SkyS3SyncDidFailToDownloadResource, manager, @{SkyS3ResourceFileName:@"test1.txt", SkyS3BucketName:@"test_bucket_name", SkyS3Error: [NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:@{NSURLErrorFailingURLStringErrorKey: URLString, NSURLErrorFailingURLErrorKey: URL}]},nil];
         
-        NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"]
-        ;
+        NSURL *xmlURL = [[NSBundle bundleForClass:self.class] URLForResource:@"list-bucket" withExtension:@"xml"];
         
         stubRequest(@"GET", @"https://test_bucket_name.s3.amazonaws.com/").
         andReturn(200).

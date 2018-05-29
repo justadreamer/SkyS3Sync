@@ -1,6 +1,8 @@
 source 'https://github.com/CocoaPods/Specs.git'
 
-platform :ios, '7.0'
+platform :ios, '9.0'
 
-pod 'SkyS3Sync', :path => '../'
-pod 'ReactiveCocoa', '~> 2.4'
+target 'S3SyncExample' do
+	pod 'SkyS3Sync', :path => '../'
+	pod 'ReactiveCocoa', '~> 2.4.4'
+end

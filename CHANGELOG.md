@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+1.0.1
+use coordinated writing when copy files
+----
+
 0.31
 allow to obtain the resource from the sync directory without any extension
 ----

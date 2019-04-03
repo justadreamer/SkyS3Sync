@@ -338,6 +338,8 @@ static NSInteger const SkyS3MaxRetries = 3;
         return;
     }
     NSURL *tmpURL = [cachesURL URLByAppendingPathComponent:resource.name];
+    // remove previous temporary file to avoid sync collisions
+    [[NSFileManager defaultManager] removeItemAtURL:tmpURL error:nil];
     [self.amazonS3DownloadResourceManager getObjectWithPath:resource.name outputFileURL:tmpURL success:^(id responseObject) {
         [self copyFrom:tmpURL to:resource.localURL];
         [self.class log:@"did update %@",resource.name];

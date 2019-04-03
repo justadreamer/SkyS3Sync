@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+1.0.2
+remove previous temporary file to avoid sync collisions
+----
+
 1.0.1
 use coordinated writing when copy files
 ----

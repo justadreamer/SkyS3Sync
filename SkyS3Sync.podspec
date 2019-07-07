@@ -4,7 +4,9 @@ Pod::Spec.new do |s|
   s.summary          = "A utility for downsyncing remotely updated versions of local files from S3.  Allows you to remotely modify some application data and make it available to your app without the need to resubmit the app to AppStore or creating a specialized backend and API the app has to talk to"
 
   s.license          = { :type => "MIT", :file => "LICENSE.txt" }
-  s.author           = { "Eugene Dorfman" => "eugene.dorfman@gmail.com" }  
+  s.authors          = { "Eugene Dorfman" => "eugene.dorfman@postindustria.com",
+                         "Oleg Kovtun" => "oleg.kovtun@postindustria.com"
+                       }  
   s.source           = { :git => "git@github.com:justadreamer/SkyS3Sync.git", :tag => s.version }
   s.ios.deployment_target = '9.0'
   s.osx.deployment_target = '10.10'
